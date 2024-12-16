@@ -4,68 +4,102 @@ import re
 import base64
 from io import BytesIO
 from PIL import Image
-import pytesseract
-import cv2
-import numpy as np
+import logging
 
+# Import the OCRHelper class from your previous implementation
+from ocr_helper import OCRHelper, LoggerConfig
 
-class EnhancedTextExtractor:
-    @staticmethod
-    def preprocess_image(image):
-        """Advanced image preprocessing for better OCR"""
-        # Convert to grayscale
-        gray = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
+class EnhancedStreamlitOCR:
+    def __init__(self):
+        # Setup logging
+        self.logger = LoggerConfig.setup_logger('StreamlitOCR')
+        
+        # Initialize OCR Helper
+        self.ocr_helper = OCRHelper()
+        
+        # Configure Streamlit page
+        st.set_page_config(
+            page_title="Moroccan ID OCR", 
+            page_icon="🆔",
+            layout="wide"
+        )
 
-        # Apply thresholding
-        thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-
-        # Denoise
-        denoised = cv2.fastNlMeansDenoising(thresh)
-
-        return denoised
-
-    @staticmethod
-    def extract_text_multilingual(image):
+    def preprocess_uploaded_image(self, uploaded_file):
         """
-        Extract text using Tesseract with multiple languages
+        Preprocess the uploaded image for OCR
+        
+        Args:
+            uploaded_file: Streamlit uploaded file object
+        
+        Returns:
+            Preprocessed PIL Image
         """
-        preprocessed = EnhancedTextExtractor.preprocess_image(image)
+        try:
+            # Open the image
+            image = Image.open(uploaded_file)
+            
+            # Log image details
+            self.logger.info(f"Image uploaded: {uploaded_file.name}")
+            self.logger.info(f"Image size: {image.size}")
+            self.logger.info(f"Image mode: {image.mode}")
+            
+            return image
+        except Exception as e:
+            self.logger.error(f"Image preprocessing error: {e}")
+            st.error(f"Error processing image: {e}")
+            return None
 
-        # Tesseract configuration for Arabic and French
-        custom_config = r'--oem 3 --psm 6 -l ara+fra'
-
-        # Extract text
-        text = pytesseract.image_to_string(preprocessed, config=custom_config)
-        return text
-
-    @staticmethod
-    def separate_languages(text):
-        """Separate Arabic and French texts"""
-        # Regex for Arabic and Latin characters
-        arabic_pattern = re.compile(r'[\u0600-\u06FF]+')
-        latin_pattern = re.compile(r'[a-zA-Z]+')
-
-        # Separate lines
-        lines = text.split('\n')
-
-        arabic_lines = []
-        french_lines = []
-
-        for line in lines:
-            if arabic_pattern.search(line):
-                arabic_lines.append(line)
-            elif latin_pattern.search(line):
-                french_lines.append(line)
-
-        return {
-            'arabic_text': '\n'.join(arabic_lines),
-            'french_text': '\n'.join(french_lines)
-        }
-
-    @staticmethod
-    def parse_extracted_data(text):
+    def extract_and_parse_text(self, image, language='ara+fra'):
         """
-        Basic parsing of extracted text
+        Extract and parse text from the image
+        
+        Args:
+            image: PIL Image
+            language: OCR language configuration
+        
+        Returns:
+            Extracted and parsed text data
+        """
+        try:
+            # Temporary save image for OCR processing
+            temp_path = 'temp_uploaded_image.jpg'
+            image.save(temp_path)
+            
+            # Extract text using OCR Helper
+            extracted_text = self.ocr_helper.extract_text(
+                temp_path, 
+                language=language
+            )
+            
+            # Remove temporary file
+            os.remove(temp_path)
+            
+            if not extracted_text:
+                st.warning("No text could be extracted from the image.")
+                return None
+            
+            # Parse extracted data
+            parsed_data = self.parse_extracted_data(extracted_text)
+            
+            return {
+                'full_text': extracted_text,
+                'parsed_data': parsed_data
+            }
+        
+        except Exception as e:
+            self.logger.error(f"Text extraction error: {e}")
+            st.error(f"Error extracting text: {e}")
+            return None
+
+    def parse_extracted_data(self, text):
+        """
+        Advanced parsing of extracted text
+        
+        Args:
+            text: Extracted text
+        
+        Returns:
+            Dictionary of parsed information
         """
         parsed_data = {
             'names': {
@@ -78,7 +112,7 @@ class EnhancedTextExtractor:
             'expiry_date': None
         }
 
-        # Simple regex patterns for extraction
+        # Regex patterns for extraction
         patterns = {
             'cin_number': r'\b[A-Z]{1,2}\d{6}\b',
             'date_of_birth': r'\d{2}/\d{2}/\d{4}',
@@ -101,64 +135,64 @@ class EnhancedTextExtractor:
 
         return parsed_data
 
+    def render_application(self):
+        """
+        Render the Streamlit application UI
+        """
+        st.title("🆔 Moroccan ID Card OCR")
+        st.write("Upload a Moroccan ID card image for text extraction")
+
+        # File uploader
+        uploaded_file = st.file_uploader(
+            "Choose an image", 
+            type=['png', 'jpg', 'jpeg'],
+            help="Upload a clear image of a Moroccan ID card"
+        )
+
+        if uploaded_file is not None:
+            # Preprocess image
+            image = self.preprocess_uploaded_image(uploaded_file)
+            
+            if image:
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.subheader("Uploaded Image")
+                    st.image(image, use_container_width=True)
+
+                with col2:
+                    st.subheader("Extracted Information")
+
+                    if st.button("Extract Text"):
+                        with st.spinner("Processing..."):
+                            # Extract text
+                            extraction_result = self.extract_and_parse_text(image)
+
+                            if extraction_result:
+                                # Create tabs
+                                tab1, tab2, tab3 = st.tabs(["📜 Full Text", "🇲🇦 Details", "🔍 Parsed Info"])
+
+                                with tab1:
+                                    st.text(extraction_result['full_text'])
+
+                                with tab2:
+                                    st.markdown("#### Extracted Details")
+                                    st.json(extraction_result['parsed_data'])
+
+                                with tab3:
+                                    st.markdown("##### Parsed Information")
+                                    parsed_data = extraction_result['parsed_data']
+                                    
+                                    # Display parsed information
+                                    st.metric("Arabic Name", parsed_data['names']['arabic'] or "Not Found")
+                                    st.metric("Latin Name", parsed_data['names']['latin'] or "Not Found")
+                                    st.metric("CIN Number", parsed_data['cin_number'] or "Not Found")
+                                    st.metric("Date of Birth", parsed_data['date_of_birth'] or "Not Found")
 
 def main():
-    st.set_page_config(page_title="Moroccan ID OCR", layout="wide")
-
-    st.title("🆔 Moroccan ID Card OCR")
-    st.write("Upload a Moroccan ID card image for text extraction")
-
-    # File uploader
-    uploaded_file = st.file_uploader("Choose an image", type=['png', 'jpg', 'jpeg'])
-
-    if uploaded_file is not None:
-        # Read the image
-        image = Image.open(uploaded_file)
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.subheader("Uploaded Image")
-            st.image(image, use_container_width=True)
-
-        with col2:
-            st.subheader("Extracted Information")
-
-            if st.button("Extract Text"):
-                with st.spinner("Processing..."):
-                    # Extract text
-                    extracted_text = EnhancedTextExtractor.extract_text_multilingual(image)
-
-                    # Separate languages
-                    language_texts = EnhancedTextExtractor.separate_languages(extracted_text)
-
-                    # Parse extracted data
-                    parsed_data = EnhancedTextExtractor.parse_extracted_data(extracted_text)
-
-                    # Create tabs
-                    tab1, tab2, tab3 = st.tabs(["📜 Full Text", "🇲🇦 Arabic", "🇫🇷 French"])
-
-                    with tab1:
-                        st.text(extracted_text)
-
-                    with tab2:
-                        st.markdown("#### Arabic Text")
-                        st.text(language_texts['arabic_text'])
-                        if parsed_data['names']['arabic']:
-                            st.markdown(f"**Arabic Name:** {parsed_data['names']['arabic']}")
-
-                    with tab3:
-                        st.markdown("#### French Text")
-                        st.text(language_texts['french_text'])
-
-                        st.markdown("##### Parsed Information")
-                        if parsed_data['names']['latin']:
-                            st.markdown(f"**Name:** {parsed_data['names']['latin']}")
-                        if parsed_data['cin_number']:
-                            st.markdown(f"**CIN Number:** {parsed_data['cin_number']}")
-                        if parsed_data['date_of_birth']:
-                            st.markdown(f"**Date of Birth:** {parsed_data['date_of_birth']}")
-
+    # Initialize and run the application
+    ocr_app = EnhancedStreamlitOCR()
+    ocr_app.render_application()
 
 if __name__ == "__main__":
     main()
