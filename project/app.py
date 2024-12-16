@@ -5,17 +5,35 @@ import base64
 from io import BytesIO
 from PIL import Image
 import logging
+import sys
 
-# Import the OCRHelper class from your previous implementation
-from ocr_helper import OCRHelper, LoggerConfig
+# Add project root to Python path
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, project_root)
+
+# Import with more robust approach
+try:
+    from utils.ocr_helper import OCRHelper, LoggerConfig
+except ImportError as e:
+    st.error(f"Import Error: {e}")
+    st.error("Unable to import OCRHelper. Please check your project structure.")
+    raise
 
 class EnhancedStreamlitOCR:
     def __init__(self):
         # Setup logging
-        self.logger = LoggerConfig.setup_logger('StreamlitOCR')
+        try:
+            self.logger = LoggerConfig.setup_logger('StreamlitOCR')
+        except Exception as e:
+            st.error(f"Logging setup failed: {e}")
+            self.logger = logging.getLogger('StreamlitOCR')
         
         # Initialize OCR Helper
-        self.ocr_helper = OCRHelper()
+        try:
+            self.ocr_helper = OCRHelper()
+        except Exception as e:
+            st.error(f"OCR Helper initialization failed: {e}")
+            self.ocr_helper = None
         
         # Configure Streamlit page
         st.set_page_config(
@@ -60,6 +78,10 @@ class EnhancedStreamlitOCR:
         Returns:
             Extracted and parsed text data
         """
+        if self.ocr_helper is None:
+            st.error("OCR Helper not initialized")
+            return None
+
         try:
             # Temporary save image for OCR processing
             temp_path = 'temp_uploaded_image.jpg'
