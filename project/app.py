@@ -1,4 +1,32 @@
 import streamlit as st
+
+# Place st.set_page_config() as the first Streamlit command
+st.set_page_config(
+    page_title="Moroccan ID OCR", 
+    page_icon="🆔",
+    layout="wide",
+    initial_sidebar_state="auto",
+    menu_items={
+        'Get Help': 'https://github.com/yourusername/moroccan-id-ocr/wiki',
+        'Report a bug': 'https://github.com/yourusername/moroccan-id-ocr/issues',
+        'About': """
+        ## Moroccan ID OCR Application
+        
+        **Version:** 1.0.0
+        **Purpose:** Intelligent Document Processing for Moroccan ID Cards
+        
+        Developed with advanced OCR technologies.
+        
+        ### Features
+        - Advanced Text Extraction
+        - Multilingual Support (Arabic & French)
+        - Intelligent Data Parsing
+        
+        Created with ❤️ using Streamlit and Tesseract OCR
+        """
+    }
+)
+
 import os
 import re
 import base64
@@ -24,6 +52,7 @@ class EnhancedStreamlitOCR:
         # Setup logging
         try:
             self.logger = LoggerConfig.setup_logger('StreamlitOCR')
+            self.logger.info("Application initialized successfully")
         except Exception as e:
             st.error(f"Logging setup failed: {e}")
             self.logger = logging.getLogger('StreamlitOCR')
@@ -31,16 +60,11 @@ class EnhancedStreamlitOCR:
         # Initialize OCR Helper
         try:
             self.ocr_helper = OCRHelper()
+            self.logger.info("OCR Helper initialized successfully")
         except Exception as e:
+            self.logger.error(f"OCR Helper initialization failed: {e}")
             st.error(f"OCR Helper initialization failed: {e}")
             self.ocr_helper = None
-        
-        # Configure Streamlit page
-        st.set_page_config(
-            page_title="Moroccan ID OCR", 
-            page_icon="🆔",
-            layout="wide"
-        )
 
     def preprocess_uploaded_image(self, uploaded_file):
         """
@@ -162,14 +186,29 @@ class EnhancedStreamlitOCR:
         Render the Streamlit application UI
         """
         st.title("🆔 Moroccan ID Card OCR")
-        st.write("Upload a Moroccan ID card image for text extraction")
+        st.write("Upload a Moroccan ID card image for intelligent text extraction")
 
-        # File uploader
+        # File uploader with enhanced configuration
         uploaded_file = st.file_uploader(
             "Choose an image", 
             type=['png', 'jpg', 'jpeg'],
-            help="Upload a clear image of a Moroccan ID card"
+            help="Upload a clear, high-resolution image of a Moroccan ID card"
         )
+
+        # Information and guidance section
+        with st.expander("ℹ️ How to Use"):
+            st.markdown("""
+            ### Instructions
+            1. Upload a clear photo of a Moroccan ID card
+            2. Ensure the entire document is visible
+            3. Use high-resolution images for best results
+            4. Click "Extract Text" to process the image
+            
+            ### Supported Features
+            - Extracts text from Moroccan ID cards
+            - Supports Arabic and French languages
+            - Intelligent data parsing
+            """)
 
         if uploaded_file is not None:
             # Preprocess image
@@ -185,8 +224,8 @@ class EnhancedStreamlitOCR:
                 with col2:
                     st.subheader("Extracted Information")
 
-                    if st.button("Extract Text"):
-                        with st.spinner("Processing..."):
+                    if st.button("Extract Text", type="primary"):
+                        with st.spinner("Processing image..."):
                             # Extract text
                             extraction_result = self.extract_and_parse_text(image)
 
