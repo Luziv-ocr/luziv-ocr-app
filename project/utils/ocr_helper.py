@@ -4,6 +4,8 @@ import re
 import subprocess
 import sys
 import os
+import platform
+import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Union
@@ -33,8 +35,12 @@ class LoggerConfig:
         console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         console_handler.setFormatter(console_formatter)
 
+        # Ensure log directory exists
+        log_dir = Path('logs')
+        log_dir.mkdir(exist_ok=True)
+
         # File handler
-        log_file = Path(f'{name}.log')
+        log_file = log_dir / f'{name}.log'
         file_handler = logging.FileHandler(log_file, mode='a')
         file_handler.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -208,35 +214,95 @@ class TextCleaner:
         return text
 
 class OCRHelper:
-    def __init__(self):
-        self.logger = LoggerConfig.setup_logger()
+    def __init__(self, logger_level: int = logging.INFO):
+        """
+        Initialize OCR Helper with robust Tesseract installation
+        
+        Args:
+            logger_level: Logging level for the logger
+        """
+        self.logger = LoggerConfig.setup_logger(level=logger_level)
+        self._install_tesseract()
         self._verify_tesseract()
         self.preprocessor = ImagePreprocessor()
         self.text_cleaner = TextCleaner()
 
-    def _verify_tesseract(self) -> None:
-        """Verify and install Tesseract if not found"""
+    def _install_tesseract(self) -> None:
+        """
+        Cross-platform Tesseract installation attempt
+        """
         try:
-            # Set Tesseract path explicitly
-            pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
+            # Check current system
+            system = platform.system().lower()
             
-            pytesseract.get_tesseract_version()
-            self.logger.info("Tesseract successfully verified")
-        except pytesseract.TesseractNotFoundError:
-            self.logger.warning("Tesseract not found. Attempting to install...")
+            if system == 'linux':
+                # For Linux (including Streamlit Cloud)
+                try:
+                    # Preferred methods for Linux
+                    installation_commands = [
+                        ['sudo', 'apt-get', 'update'],
+                        ['sudo', 'apt-get', 'install', '-y', 'tesseract-ocr'],
+                        ['sudo', 'apt-get', 'install', '-y', 
+                         'tesseract-ocr-eng', 
+                         'tesseract-ocr-ara', 
+                         'tesseract-ocr-fra']
+                    ]
+                    
+                    for cmd in installation_commands:
+                        try:
+                            subprocess.run(cmd, check=True, capture_output=True, text=True)
+                        except subprocess.CalledProcessError as e:
+                            self.logger.warning(f"Command {cmd} failed: {e.stderr}")
+                    
+                    # Try to locate Tesseract binary
+                    tesseract_path = shutil.which('tesseract')
+                    if tesseract_path:
+                        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+                        self.logger.info(f"Tesseract installed at: {tesseract_path}")
+                except Exception as apt_error:
+                    self.logger.warning(f"Linux Tesseract installation attempt failed: {apt_error}")
+            
+            elif system == 'darwin':
+                # For macOS
+                subprocess.run(['brew', 'install', 'tesseract'], check=True)
+            
+            elif system == 'windows':
+                # For Windows
+                subprocess.run(['choco', 'install', 'tesseract'], check=True)
+        
+        except Exception as e:
+            self.logger.error(f"Tesseract installation globally failed: {e}")
+
+    def _verify_tesseract(self) -> None:
+        """Enhanced Tesseract verification with multiple fallback methods"""
+        tesseract_paths = [
+            '/usr/bin/tesseract',        # Linux default
+            '/usr/local/bin/tesseract',  # Alternative Linux/macOS
+            'C:\\Program Files\\Tesseract-OCR\\tesseract.exe',  # Windows default
+            shutil.which('tesseract')    # System PATH
+        ]
+
+        for path in tesseract_paths:
             try:
-                # Try to install Tesseract
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "pytesseract"])
-                
-                # Set Tesseract path explicitly
-                pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
-                
-                # Verify again after installation
-                pytesseract.get_tesseract_version()
-                self.logger.info("Tesseract successfully installed and verified")
+                if path:
+                    pytesseract.pytesseract.tesseract_cmd = path
+                    version = pytesseract.get_tesseract_version()
+                    self.logger.info(f"Tesseract successfully verified at {path}: {version}")
+                    return
             except Exception as e:
-                self.logger.error(f"Failed to install Tesseract: {e}")
-                raise RuntimeError("Could not install or locate Tesseract") from e
+                self.logger.warning(f"Path {path} verification failed: {e}")
+                continue
+
+        # Fallback installation attempt
+        self._install_tesseract()
+        
+        # Final verification
+        try:
+            version = pytesseract.get_tesseract_version()
+            self.logger.info(f"Tesseract successfully verified after fallback: {version}")
+        except Exception as e:
+            self.logger.error(f"Could not verify Tesseract after multiple attempts: {e}")
+            raise RuntimeError("Tesseract installation completely failed") from e
 
     def _resize_if_needed(self, image: Image.Image) -> Image.Image:
         """Resize image if it exceeds maximum dimensions"""
@@ -249,16 +315,13 @@ class OCRHelper:
         return image
 
     def extract_text(self,
-                     image_path: str,
+                     image_path: Union[str, Path],
                      language: str = 'eng',
                      custom_config: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """
         Extract text from document image with advanced configuration
         """
         try:
-            # Set Tesseract path explicitly before processing
-            pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
-
             # Validate image path
             path = Path(image_path)
             if not path.exists():
@@ -299,15 +362,7 @@ class OCRHelper:
         except Exception as e:
             # More detailed error logging
             self.logger.error(f"Comprehensive OCR Error: {str(e)}")
-            self.logger.error(f"Tesseract Path: {pytesseract.pytesseract.tesseract_cmd}")
             
-            # Additional system checks
-            try:
-                # Check if Tesseract is in PATH
-                subprocess.run(['which', 'tesseract'], check=True)
-            except subprocess.CalledProcessError:
-                self.logger.error("Tesseract not found in system PATH")
-
             return None
 
     def _build_tesseract_config(self,
@@ -343,7 +398,7 @@ class OCRHelper:
         return config
 
     def batch_ocr_processing(self,
-                             image_paths: List[str],
+                             image_paths: List[Union[str, Path]],
                              max_workers: Optional[int] = None) -> Dict[str, Optional[str]]:
         """
         Batch OCR processing with concurrent execution
@@ -370,32 +425,14 @@ class OCRHelper:
                 path = future_to_path[future]
                 try:
                     result = future.result()
-                    results[path] = result
+                    results[str(path)] = result
                 except Exception as exc:
                     self.logger.error(f'{path} generated an exception: {exc}')
 
         return results
 
 def main():
-    # Initialize OCR Helper
-    ocr_helper = OCRHelper()
-
-    # Single image processing
-    try:
-        text = ocr_helper.extract_text('document.jpg', language='eng')
-        print("Extracted Text:", text)
-    except Exception as e:
-        print(f"Error processing single image: {e}")
-
-    # Batch processing
-    try:
-        batch_results = ocr_helper.batch_ocr_processing([
-            'doc1.jpg', 'doc2.jpg', 'doc3.jpg'
-        ])
-        for path, text in batch_results.items():
-            print(f"{path}: {text}")
-    except Exception as e:
-        print(f"Error in batch processing: {e}")
-
-if __name__ == "__main__":
-    main()
+    """
+    Main function to demonstrate OCR functionality
+    """
+    #
