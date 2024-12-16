@@ -1,9 +1,27 @@
+# Graphics and OpenGL libraries
 libgl1-mesa-glx
 libglib2.0-0
-libtesseract-dev
-libgl1-mesa-glx
-libglib2.0-0
+libglu1-mesa
+
+# Tesseract OCR and language dependencies
 tesseract-ocr
+libtesseract-dev
 tesseract-ocr-ara
 tesseract-ocr-fra
-libtesseract-dev
+tesseract-ocr-eng
+
+# Additional system libraries for image processing
+libatlas-base-dev
+liblapack-dev
+libopenblas-dev
+libx11-dev
+libxext-dev
+
+# Additional language support
+language-pack-en
+language-pack-ar
+language-pack-fr
+
+# Utility libraries
+poppler-utils
+ghostscript
