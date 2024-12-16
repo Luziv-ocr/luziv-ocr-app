@@ -7,7 +7,8 @@ from PIL import Image
 import pytesseract
 import concurrent.futures
 import re
-
+import subprocess
+import sys
 
 class LoggerConfig:
     """Advanced logging configuration"""
@@ -217,13 +218,28 @@ class OCRHelper:
         self.text_cleaner = TextCleaner()
 
     def _verify_tesseract(self) -> None:
-        """Verify Tesseract installation"""
+        """Verify and install Tesseract if not found"""
         try:
+            # Set Tesseract path explicitly
+            pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
+            
             pytesseract.get_tesseract_version()
             self.logger.info("Tesseract successfully verified")
         except pytesseract.TesseractNotFoundError:
-            self.logger.error("Tesseract not found in system PATH")
-            raise RuntimeError("Tesseract is not installed or not in system PATH")
+            self.logger.warning("Tesseract not found. Attempting to install...")
+            try:
+                # Try to install Tesseract
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "pytesseract"])
+                
+                # Set Tesseract path explicitly
+                pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
+                
+                # Verify again after installation
+                pytesseract.get_tesseract_version()
+                self.logger.info("Tesseract successfully installed and verified")
+            except Exception as e:
+                self.logger.error(f"Failed to install Tesseract: {e}")
+                raise RuntimeError("Could not install or locate Tesseract") from e
 
     def _resize_if_needed(self, image: Image.Image) -> Image.Image:
         """Resize image if it exceeds maximum dimensions"""
@@ -241,16 +257,11 @@ class OCRHelper:
                      custom_config: Dict[str, Any] = None) -> Optional[str]:
         """
         Extract text from document image with advanced configuration
-
-        Args:
-            image_path: Path to the image file
-            language: Primary language for OCR
-            custom_config: Custom Tesseract configuration
-
-        Returns:
-            Extracted and cleaned text or None
         """
         try:
+            # Set Tesseract path explicitly before processing
+            pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
+
             # Validate image path
             path = Path(image_path)
             if not path.exists():
@@ -289,7 +300,17 @@ class OCRHelper:
                 return None
 
         except Exception as e:
-            self.logger.error(f"Error during OCR: {str(e)}")
+            # More detailed error logging
+            self.logger.error(f"Comprehensive OCR Error: {str(e)}")
+            self.logger.error(f"Tesseract Path: {pytesseract.pytesseract.tesseract_cmd}")
+            
+            # Additional system checks
+            try:
+                # Check if Tesseract is in PATH
+                subprocess.run(['which', 'tesseract'], check=True)
+            except subprocess.CalledProcessError:
+                self.logger.error("Tesseract not found in system PATH")
+
             return None
 
     def _build_tesseract_config(self,
