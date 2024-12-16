@@ -1,14 +1,18 @@
+# Standard library imports
 import logging
-from pathlib import Path
-from typing import Optional, Dict, Any, List, Union
-import cv2
-import numpy as np
-from PIL import Image
-import pytesseract
-import concurrent.futures
 import re
 import subprocess
 import sys
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from typing import Optional, Dict, Any, List, Union
+
+# Third-party library imports
+import cv2
+import numpy as np
+import pytesseract
+from PIL import Image
 
 class LoggerConfig:
     """Advanced logging configuration"""
@@ -30,7 +34,8 @@ class LoggerConfig:
         console_handler.setFormatter(console_formatter)
 
         # File handler
-        file_handler = logging.FileHandler(f'{name}.log', mode='a')
+        log_file = Path(f'{name}.log')
+        file_handler = logging.FileHandler(log_file, mode='a')
         file_handler.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(file_formatter)
@@ -40,7 +45,6 @@ class LoggerConfig:
         logger.addHandler(file_handler)
 
         return logger
-
 
 class OCRConfig:
     """Enhanced OCR configuration with more flexible settings"""
@@ -73,13 +77,12 @@ class OCRConfig:
         }
     }
 
-
 class ImagePreprocessor:
     """Advanced image preprocessing with multiple techniques"""
 
     @classmethod
     def preprocess(cls, image: Union[Image.Image, np.ndarray],
-                   techniques: List[str] = None) -> Image.Image:
+                   techniques: Optional[List[str]] = None) -> Image.Image:
         """
         Advanced image preprocessing with selectable techniques
 
@@ -98,15 +101,11 @@ class ImagePreprocessor:
         techniques = techniques or default_techniques
 
         # Convert to numpy array if PIL Image
-        if isinstance(image, Image.Image):
-            img_array = np.array(image)
-        else:
-            img_array = image
+        img_array = np.array(image) if isinstance(image, Image.Image) else image
 
         # Grayscale conversion
-        if 'to_grayscale' in techniques:
-            if len(img_array.shape) == 3:
-                img_array = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+        if 'to_grayscale' in techniques and len(img_array.shape) == 3:
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
 
         # CLAHE
         if 'clahe' in techniques:
@@ -174,7 +173,6 @@ class ImagePreprocessor:
 
         return rotated
 
-
 class TextCleaner:
     """Advanced text cleaning and post-processing"""
 
@@ -208,7 +206,6 @@ class TextCleaner:
             text = re.sub(r'[^A-Za-zÀ-ÿ\s]', '', text)
 
         return text
-
 
 class OCRHelper:
     def __init__(self):
@@ -254,7 +251,7 @@ class OCRHelper:
     def extract_text(self,
                      image_path: str,
                      language: str = 'eng',
-                     custom_config: Dict[str, Any] = None) -> Optional[str]:
+                     custom_config: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """
         Extract text from document image with advanced configuration
         """
@@ -315,7 +312,7 @@ class OCRHelper:
 
     def _build_tesseract_config(self,
                                 language: str,
-                                custom_config: Dict[str, Any] = None) -> str:
+                                custom_config: Optional[Dict[str, Any]] = None) -> str:
         """
         Build Tesseract configuration
 
@@ -347,7 +344,7 @@ class OCRHelper:
 
     def batch_ocr_processing(self,
                              image_paths: List[str],
-                             max_workers: int = None) -> Dict[str, Optional[str]]:
+                             max_workers: Optional[int] = None) -> Dict[str, Optional[str]]:
         """
         Batch OCR processing with concurrent execution
 
@@ -358,14 +355,18 @@ class OCRHelper:
         Returns:
             Dictionary of results with image paths as keys
         """
+        # Use system CPU count if max_workers not specified
+        if max_workers is None:
+            max_workers = min(32, (os.cpu_count() or 1) + 4)
+
         results = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_path = {
                 executor.submit(self.extract_text, path): path
                 for path in image_paths
             }
 
-            for future in concurrent.futures.as_completed(future_to_path):
+            for future in as_completed(future_to_path):
                 path = future_to_path[future]
                 try:
                     result = future.result()
@@ -374,7 +375,6 @@ class OCRHelper:
                     self.logger.error(f'{path} generated an exception: {exc}')
 
         return results
-
 
 def main():
     # Initialize OCR Helper
@@ -396,7 +396,6 @@ def main():
             print(f"{path}: {text}")
     except Exception as e:
         print(f"Error in batch processing: {e}")
-
 
 if __name__ == "__main__":
     main()
