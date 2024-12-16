@@ -1,4 +1,9 @@
 import streamlit as st
+import os
+import re
+import logging
+from io import BytesIO
+from PIL import Image
 
 # Place st.set_page_config() as the absolute first line
 st.set_page_config(
@@ -12,7 +17,7 @@ st.set_page_config(
         'About': """
         ## Moroccan ID OCR Application
         
-        **Version:** 1.0.0
+        **Version:** 1.0.2
         **Purpose:** Intelligent Document Processing for Moroccan ID Cards
         
         Developed with advanced OCR technologies.
@@ -22,40 +27,83 @@ st.set_page_config(
         - Multilingual Support (Arabic & French)
         - Intelligent Data Parsing
         
-        Created with ❤️ using Streamlit and Tesseract OCR
+        Created with ❤️ using Streamlit
         """
     }
 )
 
-import os
-import re
-import base64
-from io import BytesIO
-from PIL import Image
-import logging
-import sys
-
-# Add project root to Python path
-project_root = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, project_root)
-
-# Import with more robust approach
+# Import pytesseract if available
 try:
-    from utils.ocr_helper import OCRHelper, LoggerConfig
-except ImportError as e:
-    st.error(f"Import Error: {e}")
-    st.error("Unable to import OCRHelper. Please check your project structure.")
-    raise
+    import pytesseract
+except ImportError:
+    st.error("Pytesseract is not installed. Please install it using pip.")
+    pytesseract = None
+
+class OCRHelper:
+    def __init__(self):
+        self.logger = logging.getLogger('OCRHelper')
+        self.tesseract_installed = self.check_tesseract()
+
+    def check_tesseract(self):
+        """
+        Check if Pytesseract is available
+        """
+        if pytesseract is None:
+            st.error("""
+            ### Tesseract OCR Requirements
+            
+            Pytesseract is not installed. For Streamlit Cloud, you need to:
+            1. Add `pytesseract` to your `requirements.txt`
+            2. Add `tesseract-ocr` to a `packages.txt` file in your repository
+            
+            Example `requirements.txt`:
+            ```
+            streamlit
+            pillow
+            pytesseract
+            ```
+            
+            Example `packages.txt`:
+            ```
+            tesseract-ocr
+            tesseract-ocr-ara
+            tesseract-ocr-fra
+            ```
+            """)
+            return False
+        return True
+
+    def extract_text(self, image_path, language='ara+fra'):
+        """
+        Extract text from an image using Tesseract
+        
+        Args:
+            image_path: Path to the image file
+            language: OCR language configuration
+        
+        Returns:
+            Extracted text or None
+        """
+        if not self.tesseract_installed:
+            st.error("Tesseract is not properly configured.")
+            return None
+
+        try:
+            extracted_text = pytesseract.image_to_string(
+                Image.open(image_path), 
+                lang=language
+            )
+            return extracted_text
+        except Exception as e:
+            st.error(f"OCR Extraction Error: {e}")
+            return None
 
 class EnhancedStreamlitOCR:
     def __init__(self):
         # Setup logging
-        try:
-            self.logger = LoggerConfig.setup_logger('StreamlitOCR')
-            self.logger.info("Application initialized successfully")
-        except Exception as e:
-            st.error(f"Logging setup failed: {e}")
-            self.logger = logging.getLogger('StreamlitOCR')
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger('StreamlitOCR')
+        self.logger.info("Application initialized successfully")
         
         # Initialize OCR Helper
         try:
@@ -102,8 +150,8 @@ class EnhancedStreamlitOCR:
         Returns:
             Extracted and parsed text data
         """
-        if self.ocr_helper is None:
-            st.error("OCR Helper not initialized")
+        if self.ocr_helper is None or not self.ocr_helper.tesseract_installed:
+            st.error("OCR Helper not initialized. Ensure Tesseract is installed.")
             return None
 
         try:
@@ -187,6 +235,31 @@ class EnhancedStreamlitOCR:
         """
         st.title("🆔 Moroccan ID Card OCR")
         st.write("Upload a Moroccan ID card image for intelligent text extraction")
+
+        # Check Tesseract installation status
+        if not (self.ocr_helper and self.ocr_helper.tesseract_installed):
+            st.error("""
+            ### OCR Configuration Required
+            
+            Tesseract OCR is not properly configured. For Streamlit Cloud:
+            
+            1. Create a `requirements.txt` file with:
+               ```
+               streamlit
+               pillow
+               pytesseract
+               ```
+            
+            2. Create a `packages.txt` file with:
+               ```
+               tesseract-ocr
+               tesseract-ocr-ara
+               tesseract-ocr-fra
+               ```
+            
+            3. Ensure these files are in your repository root
+            """)
+            return
 
         # File uploader with enhanced configuration
         uploaded_file = st.file_uploader(
