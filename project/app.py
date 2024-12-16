@@ -1,6 +1,6 @@
 import streamlit as st
 
-# Place st.set_page_config() as the first Streamlit command
+# Place st.set_page_config() as the absolute first line
 st.set_page_config(
     page_title="Moroccan ID OCR", 
     page_icon="🆔",
