@@ -1,154 +1,110 @@
 import re
 import unicodedata
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict
 
 
 class MoroccanIDExtractor:
     def __init__(self):
+        """
+        Define patterns for extracting specific fields from Moroccan ID text.
+        """
         self.patterns = {
-            'full_name': r'(?:NOM\s*(?:ET\s*)?PRENOM\s*[:]*\s*)([A-ZÀ-Ÿ\s-]+)',
-            'arabic_name': r'[\u0600-\u06FF\s\-\']+',
-            'cin_number': r'[A-Z]\d{6}',
-            'date_of_birth': r'(?:Né\s*(?:le)?|Date\s*de\s*naissance)\s*[:]*\s*(\d{2}[./]\d{2}[./]\d{4})',
-            'birth_place': r'(?:à|Lieu\s*de\s*naissance)\s*[:]*\s*([A-ZÀ-Ÿa-z\s-]+)',
-            'gender': r'(?:Sexe\s*[:]*\s*)(HOMME|FEMME|M|F)',
-            'nationality': r'(?:Nationalité\s*[:]*\s*)([A-ZÀ-Ÿa-z\s]+)',
-            'expiry_date': r'(?:Valable\s*jusqu\'au|Valid\s*until)\s*[:]*\s*(\d{2}[./]\d{2}[./]\d{4})'
+            'cin_number': r'\b[A-Z]{1,2}\d{6}\b',  # CIN: 1-2 letters followed by 6 digits
+            'name': r'NOM\s*ET\s*PRENOM\s*[:]*\s*([A-Z\s\-]+)',
+            'birth_date': r'N[eé]\s*le\s*(\d{2}[./-]\d{2}[./-]\d{4})',
+            'birth_place': r'\b(?:\u00e0|a)\s*([A-Z\s\-]+)',
+            'expiry_date': r'Valable\s*jusqu\'au\s*(\d{2}[./-]\d{2}[./-]\d{4})'
         }
 
-    def normalize_text(self, text: str) -> str:
+    @staticmethod
+    def normalize_text(text: str) -> str:
         """
-        Normalize text by removing extra spaces and converting to standard form
+        Normalize text: remove accents, extra spaces, and unify format.
         """
-        # Normalize unicode and remove extra whitespaces
-        normalized = unicodedata.normalize('NFKD', text)
-        normalized = re.sub(r'\s+', ' ', normalized).strip()
-        return normalized
+        text = unicodedata.normalize('NFKD', text)  # Remove accents
+        text = re.sub(r'\s+', ' ', text).strip()  # Remove multiple spaces
+        return text
 
-    def parse_date(self, date_str: str) -> Optional[datetime.date]:
+    @staticmethod
+    def parse_date(date_str: str) -> Optional[str]:
         """
-        Parse date with multiple format support
+        Convert date string to standard format (YYYY-MM-DD).
         """
         if not date_str:
             return None
-
-        # Standardize date separators
         date_str = date_str.replace('.', '/').replace('-', '/')
-        date_formats = [
-            '%d/%m/%Y',  # 10/06/2002
-            '%m/%d/%Y',  # 06/10/2002
-            '%Y/%m/%d',  # 2002/06/10
-            '%d/%m/%y',  # 10/06/02
-            '%m/%d/%y'  # 06/10/02
-        ]
+        try:
+            return datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d')
+        except ValueError:
+            return None
 
-        for fmt in date_formats:
-            try:
-                return datetime.strptime(date_str, fmt).date()
-            except ValueError:
-                continue
-        return None
-
-    def extract_moroccan_id(self, text: str) -> Dict[str, Any]:
+    def extract(self, text: str) -> Dict[str, Optional[str]]:
         """
-        Comprehensive extraction of Moroccan ID details
+        Extract relevant fields from Moroccan ID card text.
         """
-        # Normalize input text
-        normalized_text = self.normalize_text(text)
+        # Normalize and remove headers
+        text = self.normalize_text(text)
 
-        # Initialize result dictionary
-        result = {
-            'document_type': 'Carte Nationale d\'Identité',
-            'full_name': None,
-            'cin_number': None,
-            'date_of_birth': None,
-            'birth_place': None,
-            'gender': None,
-            'nationality': None,
-            'expiry_date': None
+        # Ignore known header terms
+        headers_to_ignore = ["ROYAUME DU MAROC", "CARTE NATIONALE D'IDENTITE"]
+        for header in headers_to_ignore:
+            text = text.replace(header, "")
+
+        extracted = {
+            'CIN Number': None,
+            'Full Name': None,
+            'Date of Birth': None,
+            'Birth Place': None,
+            'Expiry Date': None
         }
 
-        # Extract full name
-        name_match = re.search(self.patterns['full_name'], normalized_text, re.IGNORECASE)
-        if name_match:
-            result['full_name'] = name_match.group(1).strip()
+        # CIN Number
+        if cin_match := re.search(self.patterns['cin_number'], text):
+            extracted['CIN Number'] = cin_match.group()
 
-        # Extract CIN number
-        cin_match = re.search(self.patterns['cin_number'], normalized_text)
-        if cin_match:
-            result['cin_number'] = cin_match.group()
+        # Full Name
+        if name_match := re.search(self.patterns['name'], text):
+            extracted['Full Name'] = name_match.group(1).strip()
 
-        # Extract date of birth
-        dob_match = re.search(self.patterns['date_of_birth'], normalized_text, re.IGNORECASE)
-        if dob_match:
-            result['date_of_birth'] = self.parse_date(dob_match.group(1))
+        # Date of Birth
+        if birth_date_match := re.search(self.patterns['birth_date'], text):
+            extracted['Date of Birth'] = self.parse_date(birth_date_match.group(1))
 
-        # Extract birth place
-        birth_place_match = re.search(self.patterns['birth_place'], normalized_text, re.IGNORECASE)
-        if birth_place_match:
-            result['birth_place'] = birth_place_match.group(1).strip()
+        # Birth Place
+        if birth_place_match := re.search(self.patterns['birth_place'], text):
+            extracted['Birth Place'] = birth_place_match.group(1).strip()
 
-        # Extract gender
-        gender_match = re.search(self.patterns['gender'], normalized_text, re.IGNORECASE)
-        if gender_match:
-            result['gender'] = gender_match.group(1).upper()
+        # Expiry Date
+        if expiry_date_match := re.search(self.patterns['expiry_date'], text):
+            extracted['Expiry Date'] = self.parse_date(expiry_date_match.group(1))
 
-        # Extract nationality
-        nationality_match = re.search(self.patterns['nationality'], normalized_text, re.IGNORECASE)
-        if nationality_match:
-            result['nationality'] = nationality_match.group(1).strip()
-
-        # Extract expiry date
-        expiry_match = re.search(self.patterns['expiry_date'], normalized_text, re.IGNORECASE)
-        if expiry_match:
-            result['expiry_date'] = self.parse_date(expiry_match.group(1))
-
-        return result
-
-    def validate_extracted_data(self, extracted_data: Dict[str, Any]) -> List[str]:
-        """
-        Validate extracted data for completeness
-        """
-        warnings = []
-
-        mandatory_fields = ['full_name', 'cin_number', 'date_of_birth']
-        for field in mandatory_fields:
-            if not extracted_data[field]:
-                warnings.append(f"{field.replace('_', ' ').title()} not detected")
-
-        return warnings
+        return extracted
 
 
 def main():
-    # Sample ID text (replace with actual OCR output)
-    sample_text = """
+    """
+    Simulate OCR output and test Moroccan ID extraction.
+    """
+    ocr_output = """
     ROYAUME DU MAROC
     CARTE NATIONALE D'IDENTITE
     NOM ET PRENOM: JAMAL DIAE-EDDINE
     Né le 10.06.2002 à KHENIFRA
     CIN: Y510850
-    Nationalité: Marocaine
-    Sexe: HOMME
     Valable jusqu'au 17.10.2032
     """
 
+    # Initialize extractor
     extractor = MoroccanIDExtractor()
 
-    # Extract ID details
-    extracted_details = extractor.extract_moroccan_id(sample_text)
+    # Extract information
+    result = extractor.extract(ocr_output)
 
-    # Print extracted details
-    print("🔍 Moroccan ID Details:")
-    for key, value in extracted_details.items():
-        print(f"{key.replace('_', ' ').title()}: {value}")
-
-    # Validate extracted data
-    warnings = extractor.validate_extracted_data(extracted_details)
-    if warnings:
-        print("\n⚠️ Warnings:")
-        for warning in warnings:
-            print(f"- {warning}")
+    # Display results
+    print("\nExtracted Moroccan ID Information:")
+    for field, value in result.items():
+        print(f"{field}: {value}")
 
 
 if __name__ == "__main__":

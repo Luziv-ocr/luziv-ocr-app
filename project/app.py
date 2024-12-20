@@ -7,7 +7,7 @@ from PIL import Image
 
 # Place st.set_page_config() as the absolute first line
 st.set_page_config(
-    page_title="Moroccan ID OCR", 
+    page_title="Moroccan ID OCR",
     page_icon="🆔",
     layout="wide",
     initial_sidebar_state="auto",
@@ -16,17 +16,17 @@ st.set_page_config(
         'Report a bug': 'https://github.com/yourusername/moroccan-id-ocr/issues',
         'About': """
         ## Moroccan ID OCR Application
-        
+
         **Version:** 1.0.2
         **Purpose:** Intelligent Document Processing for Moroccan ID Cards
-        
+
         Developed with advanced OCR technologies.
-        
+
         ### Features
         - Advanced Text Extraction
         - Multilingual Support (Arabic & French)
         - Intelligent Data Parsing
-        
+
         Created with ❤️ using Streamlit
         """
     }
@@ -38,6 +38,7 @@ try:
 except ImportError:
     st.error("Pytesseract is not installed. Please install it using pip.")
     pytesseract = None
+
 
 class OCRHelper:
     def __init__(self):
@@ -51,18 +52,18 @@ class OCRHelper:
         if pytesseract is None:
             st.error("""
             ### Tesseract OCR Requirements
-            
+
             Pytesseract is not installed. For Streamlit Cloud, you need to:
             1. Add `pytesseract` to your `requirements.txt`
             2. Add `tesseract-ocr` to a `packages.txt` file in your repository
-            
+
             Example `requirements.txt`:
             ```
             streamlit
             pillow
             pytesseract
             ```
-            
+
             Example `packages.txt`:
             ```
             tesseract-ocr
@@ -76,11 +77,11 @@ class OCRHelper:
     def extract_text(self, image_path, language='ara+fra'):
         """
         Extract text from an image using Tesseract
-        
+
         Args:
             image_path: Path to the image file
             language: OCR language configuration
-        
+
         Returns:
             Extracted text or None
         """
@@ -90,7 +91,7 @@ class OCRHelper:
 
         try:
             extracted_text = pytesseract.image_to_string(
-                Image.open(image_path), 
+                Image.open(image_path),
                 lang=language
             )
             return extracted_text
@@ -98,13 +99,14 @@ class OCRHelper:
             st.error(f"OCR Extraction Error: {e}")
             return None
 
+
 class EnhancedStreamlitOCR:
     def __init__(self):
         # Setup logging
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger('StreamlitOCR')
         self.logger.info("Application initialized successfully")
-        
+
         # Initialize OCR Helper
         try:
             self.ocr_helper = OCRHelper()
@@ -117,22 +119,26 @@ class EnhancedStreamlitOCR:
     def preprocess_uploaded_image(self, uploaded_file):
         """
         Preprocess the uploaded image for OCR
-        
+
         Args:
             uploaded_file: Streamlit uploaded file object
-        
+
         Returns:
             Preprocessed PIL Image
         """
         try:
             # Open the image
             image = Image.open(uploaded_file)
-            
+
             # Log image details
             self.logger.info(f"Image uploaded: {uploaded_file.name}")
             self.logger.info(f"Image size: {image.size}")
             self.logger.info(f"Image mode: {image.mode}")
-            
+
+            # Convert RGBA to RGB (to remove alpha channel)
+            if image.mode == 'RGBA':
+                image = image.convert('RGB')
+
             return image
         except Exception as e:
             self.logger.error(f"Image preprocessing error: {e}")
@@ -142,11 +148,11 @@ class EnhancedStreamlitOCR:
     def extract_and_parse_text(self, image, language='ara+fra'):
         """
         Extract and parse text from the image
-        
+
         Args:
             image: PIL Image
             language: OCR language configuration
-        
+
         Returns:
             Extracted and parsed text data
         """
@@ -158,28 +164,28 @@ class EnhancedStreamlitOCR:
             # Temporary save image for OCR processing
             temp_path = 'temp_uploaded_image.jpg'
             image.save(temp_path)
-            
+
             # Extract text using OCR Helper
             extracted_text = self.ocr_helper.extract_text(
-                temp_path, 
+                temp_path,
                 language=language
             )
-            
+
             # Remove temporary file
             os.remove(temp_path)
-            
+
             if not extracted_text:
                 st.warning("No text could be extracted from the image.")
                 return None
-            
+
             # Parse extracted data
             parsed_data = self.parse_extracted_data(extracted_text)
-            
+
             return {
                 'full_text': extracted_text,
                 'parsed_data': parsed_data
             }
-        
+
         except Exception as e:
             self.logger.error(f"Text extraction error: {e}")
             st.error(f"Error extracting text: {e}")
@@ -188,10 +194,10 @@ class EnhancedStreamlitOCR:
     def parse_extracted_data(self, text):
         """
         Advanced parsing of extracted text
-        
+
         Args:
             text: Extracted text
-        
+
         Returns:
             Dictionary of parsed information
         """
@@ -240,30 +246,30 @@ class EnhancedStreamlitOCR:
         if not (self.ocr_helper and self.ocr_helper.tesseract_installed):
             st.error("""
             ### OCR Configuration Required
-            
+
             Tesseract OCR is not properly configured. For Streamlit Cloud:
-            
+
             1. Create a `requirements.txt` file with:
                ```
                streamlit
                pillow
                pytesseract
                ```
-            
+
             2. Create a `packages.txt` file with:
                ```
                tesseract-ocr
                tesseract-ocr-ara
                tesseract-ocr-fra
                ```
-            
+
             3. Ensure these files are in your repository root
             """)
             return
 
         # File uploader with enhanced configuration
         uploaded_file = st.file_uploader(
-            "Choose an image", 
+            "Choose an image",
             type=['png', 'jpg', 'jpeg'],
             help="Upload a clear, high-resolution image of a Moroccan ID card"
         )
@@ -276,7 +282,7 @@ class EnhancedStreamlitOCR:
             2. Ensure the entire document is visible
             3. Use high-resolution images for best results
             4. Click "Extract Text" to process the image
-            
+
             ### Supported Features
             - Extracts text from Moroccan ID cards
             - Supports Arabic and French languages
@@ -286,7 +292,7 @@ class EnhancedStreamlitOCR:
         if uploaded_file is not None:
             # Preprocess image
             image = self.preprocess_uploaded_image(uploaded_file)
-            
+
             if image:
                 col1, col2 = st.columns(2)
 
@@ -314,19 +320,10 @@ class EnhancedStreamlitOCR:
                                     st.json(extraction_result['parsed_data'])
 
                                 with tab3:
-                                    st.markdown("##### Parsed Information")
-                                    parsed_data = extraction_result['parsed_data']
-                                    
-                                    # Display parsed information
-                                    st.metric("Arabic Name", parsed_data['names']['arabic'] or "Not Found")
-                                    st.metric("Latin Name", parsed_data['names']['latin'] or "Not Found")
-                                    st.metric("CIN Number", parsed_data['cin_number'] or "Not Found")
-                                    st.metric("Date of Birth", parsed_data['date_of_birth'] or "Not Found")
+                                    st.markdown("#### Full JSON Response")
+                                    st.json(extraction_result)
 
-def main():
-    # Initialize and run the application
-    ocr_app = EnhancedStreamlitOCR()
-    ocr_app.render_application()
-
+# Run the app
 if __name__ == "__main__":
-    main()
+    app = EnhancedStreamlitOCR()
+    app.render_application()

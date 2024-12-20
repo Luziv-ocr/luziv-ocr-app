@@ -16,6 +16,7 @@ import numpy as np
 import pytesseract
 from PIL import Image
 
+
 class LoggerConfig:
     """Advanced logging configuration"""
 
@@ -52,6 +53,7 @@ class LoggerConfig:
 
         return logger
 
+
 class OCRConfig:
     """Enhanced OCR configuration with more flexible settings"""
     TESSERACT_CONFIG = {
@@ -82,6 +84,7 @@ class OCRConfig:
             'c_value': 2
         }
     }
+
 
 class ImagePreprocessor:
     """Advanced image preprocessing with multiple techniques"""
@@ -179,6 +182,7 @@ class ImagePreprocessor:
 
         return rotated
 
+
 class TextCleaner:
     """Advanced text cleaning and post-processing"""
 
@@ -213,11 +217,12 @@ class TextCleaner:
 
         return text
 
+
 class OCRHelper:
     def __init__(self, logger_level: int = logging.INFO):
         """
         Initialize OCR Helper with robust Tesseract installation
-        
+
         Args:
             logger_level: Logging level for the logger
         """
@@ -234,7 +239,7 @@ class OCRHelper:
         try:
             # Check current system
             system = platform.system().lower()
-            
+
             if system == 'linux':
                 # For Linux (including Streamlit Cloud)
                 try:
@@ -242,18 +247,18 @@ class OCRHelper:
                     installation_commands = [
                         ['sudo', 'apt-get', 'update'],
                         ['sudo', 'apt-get', 'install', '-y', 'tesseract-ocr'],
-                        ['sudo', 'apt-get', 'install', '-y', 
-                         'tesseract-ocr-eng', 
-                         'tesseract-ocr-ara', 
+                        ['sudo', 'apt-get', 'install', '-y',
+                         'tesseract-ocr-eng',
+                         'tesseract-ocr-ara',
                          'tesseract-ocr-fra']
                     ]
-                    
+
                     for cmd in installation_commands:
                         try:
                             subprocess.run(cmd, check=True, capture_output=True, text=True)
                         except subprocess.CalledProcessError as e:
                             self.logger.warning(f"Command {cmd} failed: {e.stderr}")
-                    
+
                     # Try to locate Tesseract binary
                     tesseract_path = shutil.which('tesseract')
                     if tesseract_path:
@@ -261,61 +266,29 @@ class OCRHelper:
                         self.logger.info(f"Tesseract installed at: {tesseract_path}")
                 except Exception as apt_error:
                     self.logger.warning(f"Linux Tesseract installation attempt failed: {apt_error}")
-            
+
             elif system == 'darwin':
                 # For macOS
                 subprocess.run(['brew', 'install', 'tesseract'], check=True)
-            
+
             elif system == 'windows':
                 # For Windows
                 subprocess.run(['choco', 'install', 'tesseract'], check=True)
-        
+
         except Exception as e:
             self.logger.error(f"Tesseract installation globally failed: {e}")
 
     def _verify_tesseract(self) -> None:
         """Enhanced Tesseract verification with multiple fallback methods"""
-        tesseract_paths = [
-            '/usr/bin/tesseract',        # Linux default
-            '/usr/local/bin/tesseract',  # Alternative Linux/macOS
-            'C:\\Program Files\\Tesseract-OCR\\tesseract.exe',  # Windows default
-            shutil.which('tesseract')    # System PATH
-        ]
+        tesseract_path = shutil.which('tesseract')
+        if tesseract_path:
+            self.logger.info(f"Tesseract found at: {tesseract_path}")
+            pytesseract.pytesseract.tesseract_cmd = tesseract_path
+        else:
+            self.logger.error("Tesseract not found! Ensure it is installed and available in the system PATH.")
+            raise EnvironmentError("Tesseract OCR not found.")
 
-        for path in tesseract_paths:
-            try:
-                if path:
-                    pytesseract.pytesseract.tesseract_cmd = path
-                    version = pytesseract.get_tesseract_version()
-                    self.logger.info(f"Tesseract successfully verified at {path}: {version}")
-                    return
-            except Exception as e:
-                self.logger.warning(f"Path {path} verification failed: {e}")
-                continue
-
-        # Fallback installation attempt
-        self._install_tesseract()
-        
-        # Final verification
-        try:
-            version = pytesseract.get_tesseract_version()
-            self.logger.info(f"Tesseract successfully verified after fallback: {version}")
-        except Exception as e:
-            self.logger.error(f"Could not verify Tesseract after multiple attempts: {e}")
-            raise RuntimeError("Tesseract installation completely failed") from e
-
-    def _resize_if_needed(self, image: Image.Image) -> Image.Image:
-        """Resize image if it exceeds maximum dimensions"""
-        max_dim = OCRConfig.IMAGE_PROCESSING['max_dimension']
-        if max(image.size) > max_dim:
-            ratio = max_dim / max(image.size)
-            new_size = tuple(int(dim * ratio) for dim in image.size)
-            self.logger.debug(f"Resizing image from {image.size} to {new_size}.")
-            return image.resize(new_size, Image.Resampling.LANCZOS)
-        return image
-
-    def extract_text(self,
-                     image_path: Union[str, Path],
+    def extract_text(self, image_path: Union[str, Path],
                      language: str = 'eng',
                      custom_config: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """
@@ -333,6 +306,13 @@ class OCRHelper:
                 if img.size == (0, 0):
                     self.logger.error(f"Image at {image_path} is empty.")
                     return None
+
+                # Convert image to RGB if it is in RGBA mode
+                if img.mode == 'RGBA':
+                    img = img.convert('RGB')
+                    self.logger.info(f"Converted image from RGBA to RGB.")
+                else:
+                    self.logger.info(f"Image mode is {img.mode}, no conversion needed.")
 
                 # Resize if needed
                 img = self._resize_if_needed(img)
@@ -362,77 +342,18 @@ class OCRHelper:
         except Exception as e:
             # More detailed error logging
             self.logger.error(f"Comprehensive OCR Error: {str(e)}")
-            
             return None
 
-    def _build_tesseract_config(self,
-                                language: str,
-                                custom_config: Optional[Dict[str, Any]] = None) -> str:
+    def _resize_if_needed(self, image: Image.Image) -> Image.Image:
         """
-        Build Tesseract configuration
-
-        Args:
-            language: OCR language
-            custom_config: Additional configuration
-
-        Returns:
-            Formatted Tesseract configuration string
+        Resize image if its dimension is greater than max allowed
         """
-        # Base configuration
-        base_config = OCRConfig.TESSERACT_CONFIG.copy()
-
-        # Apply custom configuration if provided
-        if custom_config:
-            base_config.update(custom_config)
-
-        # Create configuration string
-        config = (
-            f'--oem {base_config["oem"]} '
-            f'--psm {base_config["psm"]} '
-            f'-l {language} '
-            f'--dpi {base_config["dpi"]} '
-            f'-c preserve_interword_spaces='
-            f'{base_config["preserve_interword_spaces"]}'
-        )
-
-        return config
-
-    def batch_ocr_processing(self,
-                             image_paths: List[Union[str, Path]],
-                             max_workers: Optional[int] = None) -> Dict[str, Optional[str]]:
-        """
-        Batch OCR processing with concurrent execution
-
-        Args:
-            image_paths: List of image file paths
-            max_workers: Maximum number of concurrent workers
-
-        Returns:
-            Dictionary of results with image paths as keys
-        """
-        # Use system CPU count if max_workers not specified
-        if max_workers is None:
-            max_workers = min(32, (os.cpu_count() or 1) + 4)
-
-        results = {}
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_path = {
-                executor.submit(self.extract_text, path): path
-                for path in image_paths
-            }
-
-            for future in as_completed(future_to_path):
-                path = future_to_path[future]
-                try:
-                    result = future.result()
-                    results[str(path)] = result
-                except Exception as exc:
-                    self.logger.error(f'{path} generated an exception: {exc}')
-
-        return results
-
-def main():
-    """
-    Main function to demonstrate OCR functionality
-    """
-    #
+        max_dimension = OCRConfig.IMAGE_PROCESSING['max_dimension']
+        width, height = image.size
+        if width > max_dimension or height > max_dimension:
+            scale_factor = max_dimension / max(width, height)
+            new_width = int(width * scale_factor)
+            new_height = int(height * scale_factor)
+            image = image.resize((new_width, new_height), Image.ANTIALIAS)
+            self.logger.info(f"Resized image to: {new_width}x{new_height}")
+        return image
