@@ -1,15 +1,14 @@
 #!/bin/bash
-# setup.sh
+set -e  # Exit on error
 
-# Update package list
-apt-get update
+# Update and install dependencies
+apt-get update -y
+apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-ara \
+    tesseract-ocr-fra \
+    tesseract-ocr-eng \
+    libtesseract-dev
 
-# Install Tesseract and required language packs
-apt-get install -y tesseract-ocr
-apt-get install -y tesseract-ocr-ara
-apt-get install -y tesseract-ocr-fra
-apt-get install -y tesseract-ocr-eng
-apt-get install -y libtesseract-dev
-
-# Verify installation
-tesseract --version
+# Create directory for tesseract
+mkdir -p ~/.streamlit/

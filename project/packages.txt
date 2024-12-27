@@ -42,3 +42,5 @@ tesseract-ocr-fra
 tesseract-ocr-eng
 libgl1-mesa-glx
 libglib2.0-0
+tesseract-ocr
+libtesseract-dev
