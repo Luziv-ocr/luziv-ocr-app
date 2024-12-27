@@ -25,3 +25,13 @@ language-pack-fr
 # Utility libraries
 poppler-utils
 ghostscript
+# Tesseract OCR and language dependencies
+tesseract-ocr
+libtesseract-dev
+tesseract-ocr-ara
+tesseract-ocr-fra
+tesseract-ocr-eng
+
+# Image processing dependencies
+libgl1-mesa-glx
+libglib2.0-0

@@ -94,10 +94,6 @@ class ImagePreprocessor:
                    techniques: Optional[List[str]] = None) -> Image.Image:
         """
         Advanced image preprocessing with selectable techniques
-
-        Args:
-            image: Input image
-            techniques: List of preprocessing techniques to apply
         """
         # Default techniques if none specified
         default_techniques = [
@@ -155,20 +151,15 @@ class ImagePreprocessor:
 
     @staticmethod
     def _correct_skew(image: np.ndarray) -> np.ndarray:
-        """
-        Correct image skew using Hough Transform
-        """
-        # Detect lines
+        """Correct image skew using Hough Transform"""
         coords = np.column_stack(np.where(image > 0))
         angle = cv2.minAreaRect(coords)[-1]
 
-        # Adjust for horizontal/vertical orientation
         if angle < -45:
             angle = -(90 + angle)
         else:
             angle = -angle
 
-        # Rotate image
         (h, w) = image.shape[:2]
         center = (w // 2, h // 2)
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
@@ -190,13 +181,6 @@ class TextCleaner:
     def clean_text(text: str, language: str = 'eng') -> str:
         """
         Clean and normalize extracted text
-
-        Args:
-            text: Raw extracted text
-            language: Language of the text
-
-        Returns:
-            Cleaned and normalized text
         """
         if not text:
             return ""
@@ -221,72 +205,81 @@ class TextCleaner:
 class OCRHelper:
     def __init__(self, logger_level: int = logging.INFO):
         """
-        Initialize OCR Helper with robust Tesseract installation
-
-        Args:
-            logger_level: Logging level for the logger
+        Initialize OCR Helper with robust Tesseract configuration
         """
         self.logger = LoggerConfig.setup_logger(level=logger_level)
-        self._install_tesseract()
-        self._verify_tesseract()
+        self._configure_tesseract()
         self.preprocessor = ImagePreprocessor()
         self.text_cleaner = TextCleaner()
 
-    def _install_tesseract(self) -> None:
+    def _configure_tesseract(self) -> None:
         """
-        Cross-platform Tesseract installation attempt
+        Configure Tesseract for Streamlit environment
         """
         try:
-            # Check current system
+            # First try: Use system Tesseract
+            tesseract_path = shutil.which('tesseract')
+
+            if tesseract_path:
+                pytesseract.pytesseract.tesseract_cmd = tesseract_path
+                self.logger.info(f"Found Tesseract at: {tesseract_path}")
+                return
+
+            # Second try: Check common Linux paths (for Streamlit Cloud)
+            common_paths = [
+                '/usr/bin/tesseract',
+                '/usr/local/bin/tesseract',
+                '/app/.apt/usr/bin/tesseract'  # Streamlit Cloud specific path
+            ]
+
+            for path in common_paths:
+                if os.path.exists(path):
+                    pytesseract.pytesseract.tesseract_cmd = path
+                    self.logger.info(f"Using Tesseract from: {path}")
+                    return
+
+            # If we get here, try to install Tesseract
+            self._install_tesseract()
+
+        except Exception as e:
+            self.logger.error(f"Failed to configure Tesseract: {e}")
+            raise EnvironmentError(f"Tesseract configuration failed: {e}")
+
+    def _install_tesseract(self) -> None:
+        """
+        Attempt to install Tesseract if not found
+        """
+        try:
             system = platform.system().lower()
 
             if system == 'linux':
                 # For Linux (including Streamlit Cloud)
-                try:
-                    # Preferred methods for Linux
-                    installation_commands = [
-                        ['sudo', 'apt-get', 'update'],
-                        ['sudo', 'apt-get', 'install', '-y', 'tesseract-ocr'],
-                        ['sudo', 'apt-get', 'install', '-y',
-                         'tesseract-ocr-eng',
-                         'tesseract-ocr-ara',
-                         'tesseract-ocr-fra']
-                    ]
+                commands = [
+                    ['apt-get', 'update'],
+                    ['apt-get', 'install', '-y', 'tesseract-ocr'],
+                    ['apt-get', 'install', '-y', 'tesseract-ocr-ara', 'tesseract-ocr-fra', 'tesseract-ocr-eng']
+                ]
 
-                    for cmd in installation_commands:
-                        try:
-                            subprocess.run(cmd, check=True, capture_output=True, text=True)
-                        except subprocess.CalledProcessError as e:
-                            self.logger.warning(f"Command {cmd} failed: {e.stderr}")
+                for cmd in commands:
+                    subprocess.run(cmd, check=True, capture_output=True)
 
-                    # Try to locate Tesseract binary
-                    tesseract_path = shutil.which('tesseract')
-                    if tesseract_path:
-                        pytesseract.pytesseract.tesseract_cmd = tesseract_path
-                        self.logger.info(f"Tesseract installed at: {tesseract_path}")
-                except Exception as apt_error:
-                    self.logger.warning(f"Linux Tesseract installation attempt failed: {apt_error}")
-
-            elif system == 'darwin':
-                # For macOS
+            elif system == 'darwin':  # macOS
                 subprocess.run(['brew', 'install', 'tesseract'], check=True)
 
             elif system == 'windows':
-                # For Windows
                 subprocess.run(['choco', 'install', 'tesseract'], check=True)
 
-        except Exception as e:
-            self.logger.error(f"Tesseract installation globally failed: {e}")
+            # Verify installation
+            tesseract_path = shutil.which('tesseract')
+            if tesseract_path:
+                pytesseract.pytesseract.tesseract_cmd = tesseract_path
+                self.logger.info(f"Successfully installed Tesseract at: {tesseract_path}")
+            else:
+                raise EnvironmentError("Tesseract installation failed")
 
-    def _verify_tesseract(self) -> None:
-        """Enhanced Tesseract verification with multiple fallback methods"""
-        tesseract_path = shutil.which('tesseract')
-        if tesseract_path:
-            self.logger.info(f"Tesseract found at: {tesseract_path}")
-            pytesseract.pytesseract.tesseract_cmd = tesseract_path
-        else:
-            self.logger.error("Tesseract not found! Ensure it is installed and available in the system PATH.")
-            raise EnvironmentError("Tesseract OCR not found.")
+        except Exception as e:
+            self.logger.error(f"Failed to install Tesseract: {e}")
+            raise EnvironmentError(f"Tesseract installation failed: {e}")
 
     def extract_text(self, image_path: Union[str, Path],
                      language: str = 'eng',
@@ -307,12 +300,10 @@ class OCRHelper:
                     self.logger.error(f"Image at {image_path} is empty.")
                     return None
 
-                # Convert image to RGB if it is in RGBA mode
+                # Convert image to RGB if needed
                 if img.mode == 'RGBA':
                     img = img.convert('RGB')
                     self.logger.info(f"Converted image from RGBA to RGB.")
-                else:
-                    self.logger.info(f"Image mode is {img.mode}, no conversion needed.")
 
                 # Resize if needed
                 img = self._resize_if_needed(img)
@@ -321,27 +312,28 @@ class OCRHelper:
                 processed_img = self.preprocessor.preprocess(img)
 
                 # Configure OCR
-                config = self._build_tesseract_config(language, custom_config)
+                config = f'--oem 3 --psm 6 -l {language}'
+                if custom_config:
+                    config += f' {custom_config}'
 
                 # Perform OCR
-                raw_text = pytesseract.image_to_string(
+                text = pytesseract.image_to_string(
                     processed_img,
                     config=config
                 )
 
-                # Clean text
-                cleaned_text = self.text_cleaner.clean_text(raw_text, language)
+                # Clean and return text
+                cleaned_text = self.text_cleaner.clean_text(text, language)
 
                 if cleaned_text:
-                    self.logger.info("OCR successful.")
+                    self.logger.info("OCR extraction successful")
                     return cleaned_text
-
-                self.logger.warning("OCR produced empty result.")
-                return None
+                else:
+                    self.logger.warning("OCR produced empty result")
+                    return None
 
         except Exception as e:
-            # More detailed error logging
-            self.logger.error(f"Comprehensive OCR Error: {str(e)}")
+            self.logger.error(f"OCR Error: {str(e)}")
             return None
 
     def _resize_if_needed(self, image: Image.Image) -> Image.Image:
@@ -354,6 +346,6 @@ class OCRHelper:
             scale_factor = max_dimension / max(width, height)
             new_width = int(width * scale_factor)
             new_height = int(height * scale_factor)
-            image = image.resize((new_width, new_height), Image.ANTIALIAS)
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
             self.logger.info(f"Resized image to: {new_width}x{new_height}")
         return image
