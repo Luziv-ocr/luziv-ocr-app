@@ -1,13 +1,11 @@
-[server]
-enableXsrfProtection = true
-enableCORS = false
-
 [browser]
 serverAddress = "0.0.0.0"
 serverPort = 8501
 
+[server]
+enableCORS = false
+enableXsrfProtection = false
+
 [runner]
 magicEnabled = true
-
-[theme]
-primaryColor = "#F63366"
+postScriptGlobally = true
