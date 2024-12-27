@@ -17,7 +17,7 @@ st.set_page_config(
         'About': """
         ## Moroccan ID OCR Application
 
-        **Version:** 1.0.2
+        **Version:** 1.0.2  
         **Purpose:** Intelligent Document Processing for Moroccan ID Cards
 
         Developed with advanced OCR technologies.
@@ -244,27 +244,7 @@ class EnhancedStreamlitOCR:
 
         # Check Tesseract installation status
         if not (self.ocr_helper and self.ocr_helper.tesseract_installed):
-            st.error("""
-            ### OCR Configuration Required
-
-            Tesseract OCR is not properly configured. For Streamlit Cloud:
-
-            1. Create a `requirements.txt` file with:
-               ```
-               streamlit
-               pillow
-               pytesseract
-               ```
-
-            2. Create a `packages.txt` file with:
-               ```
-               tesseract-ocr
-               tesseract-ocr-ara
-               tesseract-ocr-fra
-               ```
-
-            3. Ensure these files are in your repository root
-            """)
+            st.error("""Tesseract OCR is not properly configured.""")
             return
 
         # File uploader with enhanced configuration
@@ -274,23 +254,7 @@ class EnhancedStreamlitOCR:
             help="Upload a clear, high-resolution image of a Moroccan ID card"
         )
 
-        # Information and guidance section
-        with st.expander("ℹ️ How to Use"):
-            st.markdown("""
-            ### Instructions
-            1. Upload a clear photo of a Moroccan ID card
-            2. Ensure the entire document is visible
-            3. Use high-resolution images for best results
-            4. Click "Extract Text" to process the image
-
-            ### Supported Features
-            - Extracts text from Moroccan ID cards
-            - Supports Arabic and French languages
-            - Intelligent data parsing
-            """)
-
         if uploaded_file is not None:
-            # Preprocess image
             image = self.preprocess_uploaded_image(uploaded_file)
 
             if image:
@@ -309,19 +273,15 @@ class EnhancedStreamlitOCR:
                             extraction_result = self.extract_and_parse_text(image)
 
                             if extraction_result:
-                                # Create tabs
-                                tab1, tab2, tab3 = st.tabs(["📜 Full Text", "🇲🇦 Details", "🔍 Parsed Info"])
+                                # Display results in tabs
+                                tab1, tab2 = st.tabs(["📜 Full Text", "🔍 Parsed Info"])
 
                                 with tab1:
                                     st.text(extraction_result['full_text'])
 
                                 with tab2:
-                                    st.markdown("#### Extracted Details")
                                     st.json(extraction_result['parsed_data'])
 
-                                with tab3:
-                                    st.markdown("#### Full JSON Response")
-                                    st.json(extraction_result)
 
 # Run the app
 if __name__ == "__main__":

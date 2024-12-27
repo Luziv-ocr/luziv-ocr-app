@@ -3,5 +3,9 @@ enableXsrfProtection = true
 enableCORS = false
 
 [browser]
-serverAddress = "0.0.0.0"
+
 serverPort = 8501
+
+[runner]
+# This will ensure setup.sh is executed
+magicEnabled = true
