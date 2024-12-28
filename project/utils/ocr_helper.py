@@ -1,21 +1,21 @@
-import logging
-import os
-import platform
-import shutil
-from pathlib import Path
-from typing import Optional, Union
-from PIL import Image
 import cv2
 import numpy as np
+from PIL import Image
+import logging
+import os
+from typing import Optional, Union
+from pathlib import Path
+import platform
+import shutil
 import pytesseract
-import requests
-from io import BytesIO
+from .api_ocr_helper import APIOCRHelper
 
 
 class OCRHelper:
     def __init__(self, api_key: str = None):
         self.setup_logging()
         self.api_key = api_key
+        self.api_helper = APIOCRHelper(api_key) if api_key else None
         self.tesseract_available = self._check_tesseract()
 
     def setup_logging(self):
@@ -28,136 +28,79 @@ class OCRHelper:
             self.logger.setLevel(logging.INFO)
 
     def _check_tesseract(self) -> bool:
-        """Check if Tesseract is available and properly configured"""
         try:
             if platform.system().lower() == 'windows':
                 tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
                 if os.path.exists(tesseract_path):
                     pytesseract.pytesseract.tesseract_cmd = tesseract_path
+                    self.logger.info(f"Tesseract found at: {tesseract_path}")
                     return True
             else:
                 tesseract_path = shutil.which('tesseract')
                 if tesseract_path:
                     pytesseract.pytesseract.tesseract_cmd = tesseract_path
+                    self.logger.info(f"Tesseract found at: {tesseract_path}")
                     return True
 
-            # Try to set TESSDATA_PREFIX if not set
-            if not os.getenv('TESSDATA_PREFIX'):
-                possible_paths = [
-                    '/usr/share/tesseract-ocr/4.00/tessdata',
-                    '/usr/share/tessdata',
-                    '/usr/local/share/tessdata'
-                ]
-                for path in possible_paths:
-                    if os.path.exists(path):
-                        os.environ['TESSDATA_PREFIX'] = path
-                        return True
+            self.logger.warning("Tesseract not found or not properly configured")
             return False
         except Exception as e:
             self.logger.error(f"Tesseract check failed: {e}")
             return False
 
-    def extract_text(self, image_path: Union[str, Path], method: str = 'auto',
+    def extract_text(self, image_path: Union[str, Path], method: str = 'api',
                      language: str = 'ara+fra') -> Optional[str]:
         """
-        Extract text from image using specified OCR method
-
-        Args:
-            image_path: Path to image file
-            method: OCR method ('auto', 'tesseract', or 'api')
-            language: Language code(s) for OCR
+        Extract text from image using specified method
         """
         try:
-            # Load and preprocess image
-            image = Image.open(image_path)
-            if image.mode == 'RGBA':
-                image = image.convert('RGB')
+            if method == 'api' and self.api_helper:
+                return self.api_helper.extract_text(image_path, language)
+            elif method == 'tesseract' and self.tesseract_available:
+                return self._extract_text_tesseract(image_path, language)
+            elif method == 'auto':
+                # Try API first, then fall back to Tesseract
+                if self.api_helper:
+                    result = self.api_helper.extract_text(image_path, language)
+                    if result:
+                        return result
+                if self.tesseract_available:
+                    return self._extract_text_tesseract(image_path, language)
 
-            # Try Tesseract first if available and method is 'auto' or 'tesseract'
-            if method in ['auto', 'tesseract'] and self.tesseract_available:
-                text = self._extract_with_tesseract(image, language)
-                if text:
-                    return text
-                elif method == 'tesseract':
-                    return None
-
-            # Fallback to API or if API method specifically requested
-            if method in ['auto', 'api'] and self.api_key:
-                return self._extract_with_api(image, language)
-
-            raise ValueError("No available OCR method")
-
-        except Exception as e:
-            self.logger.error(f"Text extraction error: {str(e)}")
+            self.logger.error("No valid OCR method available")
             return None
 
-    def _extract_with_tesseract(self, image: Image.Image, language: str) -> Optional[str]:
-        """Extract text using Tesseract OCR"""
-        try:
-            # Convert language code
-            lang_map = {'ara+fra': 'ara+fra', 'ara': 'ara', 'fra': 'fra', 'eng': 'eng'}
-            tesseract_lang = lang_map.get(language, 'eng')
+        except Exception as e:
+            self.logger.error(f"Text extraction failed: {e}")
+            return None
 
-            # Configure Tesseract
-            config = '--oem 3 --psm 3'
+    def _extract_text_tesseract(self, image_path: Union[str, Path], language: str) -> Optional[str]:
+        """
+        Extract text using Tesseract OCR
+        """
+        try:
+            # Map language codes to Tesseract format
+            lang_mapping = {
+                'ara': 'ara',
+                'fra': 'fra',
+                'eng': 'eng',
+                'ara+fra': 'ara+fra'
+            }
+            tesseract_lang = lang_mapping.get(language, 'ara+fra')
+
+            # Read image using PIL
+            image = Image.open(image_path)
 
             # Extract text
-            text = pytesseract.image_to_string(image, lang=tesseract_lang, config=config)
+            text = pytesseract.image_to_string(image, lang=tesseract_lang)
 
-            return text.strip() if text.strip() else None
-
-        except Exception as e:
-            self.logger.error(f"Tesseract extraction failed: {e}")
-            return None
-
-    def _extract_with_api(self, image: Image.Image, language: str) -> Optional[str]:
-        """Extract text using OCR.space API"""
-        try:
-            if not self.api_key:
-                raise ValueError("API key required for OCR.space API")
-
-            # Prepare image
-            img_byte_arr = BytesIO()
-            image.save(img_byte_arr, format='PNG')
-            img_byte_arr = img_byte_arr.getvalue()
-
-            # Configure API request
-            lang_map = {
-                'ara+fra': 'ara,fre',
-                'ara': 'ara',
-                'fra': 'fre',
-                'eng': 'eng'
-            }
-            api_lang = lang_map.get(language, 'eng')
-
-            payload = {
-                'apikey': self.api_key,
-                'language': api_lang,
-                'OCREngine': 2,
-                'scale': True,
-                'isTable': False
-            }
-
-            files = {
-                'image': ('image.png', img_byte_arr, 'image/png')
-            }
-
-            # Make API request
-            response = requests.post(
-                'https://api.ocr.space/parse/image',
-                files=files,
-                data=payload,
-                timeout=30
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                if result.get('ParsedResults'):
-                    return result['ParsedResults'][0]['ParsedText'].strip()
-
-            return None
+            if text.strip():
+                self.logger.info("Tesseract OCR extraction successful")
+                return text.strip()
+            else:
+                self.logger.warning("Tesseract OCR returned empty text")
+                return None
 
         except Exception as e:
-            self.logger.error(f"API extraction failed: {e}")
+            self.logger.error(f"Tesseract OCR extraction failed: {e}")
             return None
-
