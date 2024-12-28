@@ -44,3 +44,17 @@ libgl1-mesa-glx
 libglib2.0-0
 tesseract-ocr
 libtesseract-dev
+tesseract-ocr
+libtesseract-dev
+tesseract-ocr-ara
+tesseract-ocr-fra
+tesseract-ocr-eng
+libgl1-mesa-glx
+libglib2.0-0
+libsm6
+libxext6
+libxrender-dev
+libgstreamer1.0-0
+wget
+
+
