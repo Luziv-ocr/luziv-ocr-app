@@ -1,9 +1,9 @@
-import requests
 import logging
-from pathlib import Path
-from typing import Optional
-from PIL import Image
 from io import BytesIO
+from typing import Optional
+
+import requests
+from PIL import Image
 
 
 class APIOCRHelper:
@@ -20,10 +20,10 @@ class APIOCRHelper:
             'ara+fra': 'ara,fre'
         }
 
-    def extract_text(self, image_path: str, language: str = 'ara+fra') -> Optional[str]:
+    def extract_text(self, image_path: str, language: str = 'ara') -> Optional[str]:
         try:
             # Map the language parameter to API format
-            api_language = self.language_mapping.get(language, 'ara,fre')
+            api_language = self.language_mapping.get(language, 'ara')
 
             # Prepare the image
             image = Image.open(image_path)
@@ -38,13 +38,13 @@ class APIOCRHelper:
             # Prepare API request
             payload = {
                 'apikey': self.api_key,
-                'language': api_language,
-                'OCREngine': 2,
+                'language': "ara",
+                'OCREngine': 1,
                 'detectOrientation': True,
                 'scale': True,
                 'isTable': False,
             }
-
+            self.logger.info(payload)
             files = {
                 'image': ('image.png', img_byte_arr, 'image/png')
             }
@@ -56,6 +56,7 @@ class APIOCRHelper:
                 data=payload,
                 timeout=30
             )
+            self.logger.info(response)
 
             if response.status_code == 200:
                 result = response.json()

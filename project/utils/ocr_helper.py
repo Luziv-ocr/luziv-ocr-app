@@ -54,18 +54,18 @@ class OCRHelper:
         Extract text from image using specified method
         """
         try:
-            if method == 'api' and self.api_helper:
-                return self.api_helper.extract_text(image_path, language)
-            elif method == 'tesseract' and self.tesseract_available:
-                return self._extract_text_tesseract(image_path, language)
-            elif method == 'auto':
-                # Try API first, then fall back to Tesseract
-                if self.api_helper:
-                    result = self.api_helper.extract_text(image_path, language)
-                    if result:
-                        return result
-                if self.tesseract_available:
-                    return self._extract_text_tesseract(image_path, language)
+            # if method == 'api' and self.api_helper:
+            return self.api_helper.extract_text(image_path, language)
+            # elif method == 'tesseract' and self.tesseract_available:
+            #     return self._extract_text_tesseract(image_path, language)
+            # elif method == 'auto':
+            #     # Try API first, then fall back to Tesseract
+            #     if self.api_helper:
+            #         result = self.api_helper.extract_text(image_path, language)
+            #         if result:
+            #             return result
+            #     if self.tesseract_available:
+            #         return self._extract_text_tesseract(image_path, language)
 
             self.logger.error("No valid OCR method available")
             return None

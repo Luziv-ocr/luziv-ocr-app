@@ -97,6 +97,25 @@ class MoroccanIDExtractor:
         except Exception:
             return None
 
+    def clean_irrelevant_lines(self, text: str) -> str:
+        """
+        Remove irrelevant lines and text patterns.
+
+        Args:
+            text: Input text to clean
+
+        Returns:
+            Cleaned text
+        """
+        # Remove lines with no useful information (French and Arabic headers)
+        patterns_to_remove = [
+            r'(ROYAUME DU MAROC|CARTE NATIONALE D\'IDENTITE)',
+            r'(المملكة المغربية|البطاقة الوطنية للتعريف)'
+        ]
+        for pattern in patterns_to_remove:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+        return text.strip()
+
     def extract(self, text: str) -> Dict[str, Optional[str]]:
         """
         Extract relevant fields from Moroccan ID card text.
@@ -108,8 +127,9 @@ class MoroccanIDExtractor:
         Returns:
             Dictionary containing extracted information
         """
-        # Normalize text
+        # Normalize and clean text
         text = self.normalize_text(text)
+        text = self.clean_irrelevant_lines(text)
 
         # Initialize results dictionary
         extracted = {
@@ -122,49 +142,19 @@ class MoroccanIDExtractor:
             'Expiry Date': None
         }
 
-        # Extract CIN Number
-        if cin_match := re.search(self.patterns['cin_number'], text):
-            extracted['CIN Number'] = cin_match.group()
-
-        # Extract Name (try both French and Arabic patterns)
-        for lang in ['fr', 'ar']:
-            if name_match := re.search(self.patterns['name'][lang], text):
-                extracted['Full Name'] = name_match.group(1).strip()
-                break
-
-        # Extract Birth Date
-        for lang in ['fr', 'ar']:
-            if birth_date_match := re.search(self.patterns['birth_date'][lang], text):
-                extracted['Date of Birth'] = self.parse_date(birth_date_match.group(1))
-                break
-
-        # Extract Birth Place
-        for lang in ['fr', 'ar']:
-            if birth_place_match := re.search(self.patterns['birth_place'][lang], text):
-                extracted['Place of Birth'] = birth_place_match.group(1).strip()
-                break
-
-        # Extract Gender
-        for lang in ['fr', 'ar']:
-            if gender_match := re.search(self.patterns['gender'][lang], text):
-                gender_value = gender_match.group(1)
-                if lang == 'fr':
-                    extracted['Gender'] = 'Male' if gender_value == 'M' else 'Female'
-                else:
-                    extracted['Gender'] = 'Male' if gender_value == 'ذ' else 'Female'
-                break
-
-        # Extract Address
-        for lang in ['fr', 'ar']:
-            if address_match := re.search(self.patterns['address'][lang], text):
-                extracted['Address'] = address_match.group(1).strip()
-                break
-
-        # Extract Expiry Date
-        for lang in ['fr', 'ar']:
-            if expiry_match := re.search(self.patterns['expiry_date'][lang], text):
-                extracted['Expiry Date'] = self.parse_date(expiry_match.group(1))
-                break
+        # Extract fields
+        for key, patterns in self.patterns.items():
+            if isinstance(patterns, dict):  # Handle language-specific patterns
+                for lang, pattern in patterns.items():
+                    if match := re.search(pattern, text):
+                        if key == 'birth_date' or key == 'expiry_date':
+                            extracted[key.replace('_', ' ').title()] = self.parse_date(match.group(1))
+                        else:
+                            extracted[key.replace('_', ' ').title()] = match.group(1).strip()
+                        break
+            else:
+                if match := re.search(patterns, text):
+                    extracted[key.replace('_', ' ').title()] = match.group()
 
         return extracted
 
