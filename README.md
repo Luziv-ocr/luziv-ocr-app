@@ -33,29 +33,39 @@ Moroccan ID Card OCR is an advanced optical character recognition (OCR) applicat
 ### OCR Application
 
 1. Clone the repository:
+```
 git clone https://github.com/DiaeEddineJamal/Luziv-ocr
 cd moroccan-id-ocr
+```
 
-2. Install required system dependencies:
+3. Install required system dependencies:
+```
 sudo apt-get update
 sudo apt-get install -y $(cat packages.txt)
+```
 
-3. Install Python dependencies:
+ 
+5. Install Python dependencies:
+```
 pip install -r requirements.txt
+```
 
-4. Set up environment variables:
+7. Set up environment variables:
 Create a `.env` file in the project root and add your OCR.space API key:
 OCR_SPACE_API_KEY=your_api_key_here
 
 ### Authentication Application
 
 1. Navigate to the auth directory:
+```
 cd auth
+```
 
-2. Install Node.js dependencies:
+3. Install Node.js dependencies:
+```
 npm install
-
-3. Set up Supabase environment variables:
+```
+5. Set up Supabase environment variables:
 Create a `.env.local` file in the auth directory and add your Supabase credentials:
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
