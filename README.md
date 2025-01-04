@@ -7,7 +7,7 @@ Moroccan ID Card OCR is an advanced optical character recognition (OCR) applicat
 
 ## 🔗 Quick Links
 
-- [Streamlit App](https://luziv-ocr.streamlit.app/)
+- [Streamlit App](https://luziv-ocrx.streamlit.app/)
 - [Authentication Page](https://auth-for-ocr.vercel.app/)
 
 ## 🎥 Demo
