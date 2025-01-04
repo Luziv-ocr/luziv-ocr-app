@@ -8,14 +8,14 @@ Moroccan ID Card OCR is an advanced optical character recognition (OCR) applicat
 
 ## 🔗 Quick Links
 
-- [Streamlit App](https://moroccan-id-ocr.streamlit.app)
-- [Authentication Page](https://moroccan-id-ocr-auth.vercel.app)
+- [Streamlit App](https://luziv-ocr.streamlit.app/)
+- [Authentication Page](https://auth-for-ocr.vercel.app/)
 
 ## 🎥 Demo
 
 [Watch the Video Demo](https://link-to-your-video-demo.com)
 
-![Demo GIF](https://placeholder-for-demo-gif.com/demo.gif)
+
 
 ## ✨ Features
 
@@ -34,7 +34,7 @@ Moroccan ID Card OCR is an advanced optical character recognition (OCR) applicat
 ### OCR Application
 
 1. Clone the repository:
-git clone [https://github.com/yourusername/moroccan-id-ocr.git](https://github.com/yourusername/moroccan-id-ocr.git)
+git clone https://github.com/DiaeEddineJamal/Luziv-ocr
 cd moroccan-id-ocr
 
 2. Install required system dependencies:
@@ -85,10 +85,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ## 📸 Screenshots
 
-![Screenshot 1](https://placeholder-for-screenshot1.com/screenshot1.jpg)
+![Screenshot 1](https://i.ibb.co/CVkQ0H9/streamdemo.png)
 *OCR Application Interface*
 
-![Screenshot 2](https://placeholder-for-screenshot2.com/screenshot2.jpg)
+![Screenshot 2](https://i.ibb.co/9qMJ5mJ/authdemo.png)
 *Authentication Page*
 
 ## 🧠 How It Works
@@ -108,9 +108,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 - OCR.space API calls are made securely using API keys.
 - Sensitive information is never stored in client-side code.
 
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome! Feel free to check [issues page](https://github.com/yourusername/moroccan-id-ocr/issues).
 
 ## 📄 License
 
@@ -118,6 +115,5 @@ This project is [MIT](https://choosealicense.com/licenses/mit/) licensed.
 
 ## 📞 Contact
 
-Your Name - [@your_twitter](https://twitter.com/your_twitter) - email@example.com
+DIAE EDDINE JAMAL  diae_2002@hotmail.com
 
-Project Link: [https://github.com/yourusername/moroccan-id-ocr](https://github.com/yourusername/moroccan-id-ocr)
