@@ -1,6 +1,5 @@
 # 🆔 Moroccan ID Card OCR
 
-![Moroccan ID Card OCR](https://placeholder-for-project-banner.com/banner.jpg)
 
 ## 📖 Description
 
@@ -13,7 +12,7 @@ Moroccan ID Card OCR is an advanced optical character recognition (OCR) applicat
 
 ## 🎥 Demo
 
-[Watch the Video Demo](https://link-to-your-video-demo.com)
+[Watch the Video Demo](https://github.com/user-attachments/assets/c3d18bdd-5b33-4683-af1f-3ed18988b32c)
 
 
 
