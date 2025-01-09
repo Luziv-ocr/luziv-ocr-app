@@ -16,8 +16,8 @@ st.set_page_config(
 )
 
 # Initialize Supabase client
-SUPABASE_URL = st.secrets["https://zonxlcgvjzibarsduajd.supabase.co"]
-SUPABASE_KEY = st.secrets["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvbnhsY2d2anppYmFyc2R1YWpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU4MTgyMjgsImV4cCI6MjA1MTM5NDIyOH0.MQO_j-JgWfbmZ_4s9Cndwc4ldmHl5uC9AgPwtdolnKo"]
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
