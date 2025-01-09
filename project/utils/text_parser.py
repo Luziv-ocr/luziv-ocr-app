@@ -35,7 +35,7 @@ class MoroccanIDExtractor:
             'address': {
                 'fr': r'Adresse\s*[:]*\s*([A-Z0-9\s\-\.,]+)',
                 'ar': r'العنوان\s*[:]*\s*([\u0600-\u06FF0-9\s\-\.,]+)'
-                "ss"
+                "s"
             }
         }
 
