@@ -16,18 +16,16 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 
-
 # Initialize Supabase client
 SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-
-
 # Helper function to verify JWT
 def verify_jwt(token):
     try:
-        response = supabase.auth.api.get_user(token)
+        # This is where the token gets validated
+        response = supabase.auth.get_user(token)
         return response
     except Exception as e:
         st.error(f"Authentication failed: {str(e)}")
@@ -41,42 +39,28 @@ class StreamlitWithAuth:
     def setup_session_state(self):
         if "authenticated" not in st.session_state:
             st.session_state.authenticated = False
-        if "user" not in st.session_state:
-            st.session_state.user = None
 
     def check_authentication(self):
-        # Get token from localStorage or URL query params
+        # Get token from URL query params
         token = st.experimental_get_query_params().get('token', [None])[0]
 
         if not token:
             st.warning("You must log in to access this application.")
-            st.stop()  # Prevent further execution of the app
+            st.stop()
 
         # Verify the JWT with Supabase
         user = verify_jwt(token)
         if user:
-            st.session_state.authenticated = True
-            st.session_state.user = user
+            st.session_state.authenticated = True  # Token verified, mark as authenticated
         else:
             st.warning("Invalid token. Please log in again.")
             st.stop()
-
-    def logout(self):
-        if st.button("Logout"):
-            st.session_state.authenticated = False
-            st.session_state.user = None
-            st.success("Logged out successfully!")
-            st.experimental_rerun()
 
     def render_application(self):
         # Check if user is authenticated
         self.check_authentication()
 
-        # Show user info and logout option
-        st.sidebar.write(f"👤 Logged in as: {st.session_state.user['email']}")
-        self.logout()
-
-        # Render the OCR application here
+        # Render the OCR application
         app = EnhancedStreamlitOCR()
         app.render_application()
 
@@ -115,6 +99,20 @@ class EnhancedStreamlitOCR:
         except Exception as e:
             self.logger.error(f"Image preprocessing error: {e}")
             st.error(f"Error processing image: {str(e)}")
+            return None
+
+    def preprocess_camera_image(self, camera_image):
+        try:
+            if camera_image:
+                image = Image.open(camera_image)
+                if image.mode == "RGBA":
+                    image = image.convert("RGB")
+                return image
+            else:
+                return None
+        except Exception as e:
+            self.logger.error(f"Camera image preprocessing error: {e}")
+            st.error(f"Error processing camera image: {str(e)}")
             return None
 
     def extract_and_parse_text(self, image):
@@ -170,33 +168,40 @@ class EnhancedStreamlitOCR:
             help="Upload a clear, high-resolution image of a Moroccan ID card.",
         )
 
+        camera_image = st.camera_input("Capture image using your camera")
+
+        image = None
+
+        # Use uploaded file if available, else use the camera
         if uploaded_file:
             image = self.preprocess_uploaded_image(uploaded_file)
+        elif camera_image:
+            image = self.preprocess_camera_image(camera_image)
 
-            if image:
-                col1, col2 = st.columns(2)
+        if image:
+            col1, col2 = st.columns(2)
 
-                with col1:
-                    st.subheader("Uploaded Image")
-                    st.image(image, use_container_width=True)
+            with col1:
+                st.subheader("Uploaded/Camera Image")
+                st.image(image, use_container_width=True)
 
-                with col2:
-                    if st.button("Extract Text"):
-                        extraction_result = self.extract_and_parse_text(image)
+            with col2:
+                if st.button("Extract Text"):
+                    extraction_result = self.extract_and_parse_text(image)
 
-                        if extraction_result:
-                            tab1, tab2 = st.tabs(["📜 Full Text", "🔍 Parsed Info"])
+                    if extraction_result:
+                        tab1, tab2 = st.tabs(["📜 Full Text", "🔍 Parsed Info"])
 
-                            with tab1:
-                                st.text_area(
-                                    "Extracted Text",
-                                    value=extraction_result["full_text"],
-                                    height=200,
-                                    key="full_text_tab",
-                                )
+                        with tab1:
+                            st.text_area(
+                                "Extracted Text",
+                                value=extraction_result["full_text"],
+                                height=200,
+                                key="full_text_tab",
+                            )
 
-                            with tab2:
-                                st.json(extraction_result["parsed_data"], expanded=True)
+                        with tab2:
+                            st.json(extraction_result["parsed_data"], expanded=True)
 
         if st.session_state.processing_history:
             with st.expander("Processing History"):
