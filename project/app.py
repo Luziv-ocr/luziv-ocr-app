@@ -6,6 +6,7 @@ from PIL import Image
 from utils.ocr_helper import OCRHelper
 from utils.text_parser import MoroccanIDExtractor
 import time
+import requests
 
 # Configure Streamlit page
 st.set_page_config(
@@ -15,10 +16,22 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 
+
 # Initialize Supabase client
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+
+# Helper function to verify JWT
+def verify_jwt(token):
+    try:
+        response = supabase.auth.api.get_user(token)
+        return response
+    except Exception as e:
+        st.error(f"Authentication failed: {str(e)}")
+        return None
 
 
 class StreamlitWithAuth:
@@ -32,10 +45,21 @@ class StreamlitWithAuth:
             st.session_state.user = None
 
     def check_authentication(self):
-        # Redirect unauthenticated users to login page
-        if not st.session_state.authenticated:
+        # Get token from localStorage or URL query params
+        token = st.experimental_get_query_params().get('token', [None])[0]
+
+        if not token:
             st.warning("You must log in to access this application.")
             st.stop()  # Prevent further execution of the app
+
+        # Verify the JWT with Supabase
+        user = verify_jwt(token)
+        if user:
+            st.session_state.authenticated = True
+            st.session_state.user = user
+        else:
+            st.warning("Invalid token. Please log in again.")
+            st.stop()
 
     def logout(self):
         if st.button("Logout"):
