@@ -6,7 +6,6 @@ from utils.ocr_helper import OCRHelper
 from utils.text_parser import MoroccanIDExtractor
 import time
 
-
 # Configure Streamlit page
 st.set_page_config(
     page_title="Moroccan ID OCR",
@@ -14,7 +13,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="auto",
 )
-
 
 class EnhancedStreamlitOCR:
     def __init__(self):
@@ -101,41 +99,51 @@ class EnhancedStreamlitOCR:
 
     def render_application(self):
         st.title("🆔 Moroccan ID Card OCR")
-        st.write("Upload a Moroccan ID card image for intelligent text extraction.")
+        st.write("Upload a Moroccan ID card image or use your camera for intelligent text extraction.")
 
-        uploaded_file = st.file_uploader(
-            "Choose an image",
-            type=['png', 'jpg', 'jpeg'],
-            help="Upload a clear, high-resolution image of a Moroccan ID card."
-        )
+        # Toggle for selecting input method
+        input_method = st.radio("Choose Input Method:", ("Upload File", "Use Camera"))
 
-        if uploaded_file:
-            image = self.preprocess_uploaded_image(uploaded_file)
+        image = None
 
-            if image:
-                col1, col2 = st.columns(2)
+        if input_method == "Upload File":
+            uploaded_file = st.file_uploader(
+                "Choose an image",
+                type=['png', 'jpg', 'jpeg'],
+                help="Upload a clear, high-resolution image of a Moroccan ID card."
+            )
+            if uploaded_file:
+                image = self.preprocess_uploaded_image(uploaded_file)
 
-                with col1:
-                    st.subheader("Uploaded Image")
-                    st.image(image, use_container_width=True)
+        elif input_method == "Use Camera":
+            camera_image = st.camera_input("Take a picture")
+            if camera_image:
+                image = self.preprocess_uploaded_image(camera_image)
 
-                with col2:
-                    if st.button("Extract Text"):
-                        extraction_result = self.extract_and_parse_text(image)
+        if image:
+            col1, col2 = st.columns(2)
 
-                        if extraction_result:
-                            tab1, tab2 = st.tabs(["📜 Full Text", "🔍 Parsed Info"])
+            with col1:
+                st.subheader("Captured/Uploaded Image")
+                st.image(image, use_container_width=True)
 
-                            with tab1:
-                                st.text_area(
-                                    "Extracted Text",
-                                    value=extraction_result['full_text'],
-                                    height=200,
-                                    key="full_text_tab"
-                                )
+            with col2:
+                if st.button("Extract Text"):
+                    extraction_result = self.extract_and_parse_text(image)
 
-                            with tab2:
-                                st.json(extraction_result['parsed_data'], expanded=True)
+                    if extraction_result:
+                        tab1, tab2 = st.tabs(["📜 Full Text", "🔍 Parsed Info"])
+
+                        with tab1:
+                            st.text_area(
+                                "Extracted Text",
+                                value=extraction_result['full_text'],
+                                height=200,
+                                key="full_text_tab"
+                            )
+
+                        with tab2:
+                            st.json(extraction_result['parsed_data'], expanded=True)
 
         if st.session_state.processing_history:
             with st.expander("Processing History"):
@@ -143,7 +151,6 @@ class EnhancedStreamlitOCR:
                     st.write(f"**Processed at:** {entry['timestamp']}")
                     st.json(entry['result'])
                     st.markdown("---")
-
 
 if __name__ == "__main__":
     app = EnhancedStreamlitOCR()
