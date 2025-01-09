@@ -1,4 +1,5 @@
 import streamlit as st
+from supabase import create_client, Client
 import os
 import logging
 from PIL import Image
@@ -14,6 +15,48 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 
+# Initialize Supabase client
+SUPABASE_URL = st.secrets["https://zonxlcgvjzibarsduajd.supabase.co"]
+SUPABASE_KEY = st.secrets["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvbnhsY2d2anppYmFyc2R1YWpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU4MTgyMjgsImV4cCI6MjA1MTM5NDIyOH0.MQO_j-JgWfbmZ_4s9Cndwc4ldmHl5uC9AgPwtdolnKo"]
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+class StreamlitWithAuth:
+    def __init__(self):
+        self.setup_session_state()
+
+    def setup_session_state(self):
+        if "authenticated" not in st.session_state:
+            st.session_state.authenticated = False
+        if "user" not in st.session_state:
+            st.session_state.user = None
+
+    def check_authentication(self):
+        # Redirect unauthenticated users to login page
+        if not st.session_state.authenticated:
+            st.warning("You must log in to access this application.")
+            st.stop()  # Prevent further execution of the app
+
+    def logout(self):
+        if st.button("Logout"):
+            st.session_state.authenticated = False
+            st.session_state.user = None
+            st.success("Logged out successfully!")
+            st.experimental_rerun()
+
+    def render_application(self):
+        # Check if user is authenticated
+        self.check_authentication()
+
+        # Show user info and logout option
+        st.sidebar.write(f"👤 Logged in as: {st.session_state.user['email']}")
+        self.logout()
+
+        # Render the OCR application here
+        app = EnhancedStreamlitOCR()
+        app.render_application()
+
+
 class EnhancedStreamlitOCR:
     def __init__(self):
         self.setup_logging()
@@ -22,7 +65,7 @@ class EnhancedStreamlitOCR:
 
     def setup_logging(self):
         logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger('StreamlitOCR')
+        self.logger = logging.getLogger("StreamlitOCR")
         self.logger.info("Application initialized successfully")
 
     def initialize_components(self):
@@ -36,14 +79,14 @@ class EnhancedStreamlitOCR:
             st.error("Failed to initialize application components. Please check the logs.")
 
     def setup_session_state(self):
-        if 'processing_history' not in st.session_state:
+        if "processing_history" not in st.session_state:
             st.session_state.processing_history = []
 
     def preprocess_uploaded_image(self, uploaded_file):
         try:
             image = Image.open(uploaded_file)
-            if image.mode == 'RGBA':
-                image = image.convert('RGB')
+            if image.mode == "RGBA":
+                image = image.convert("RGB")
             return image
         except Exception as e:
             self.logger.error(f"Image preprocessing error: {e}")
@@ -59,13 +102,13 @@ class EnhancedStreamlitOCR:
             progress_bar = st.progress(0)
             status_text = st.empty()
 
-            temp_path = 'temp_uploaded_image.jpg'
-            image.save(temp_path, 'JPEG', quality=95)
+            temp_path = "temp_uploaded_image.jpg"
+            image.save(temp_path, "JPEG", quality=95)
 
             status_text.text("Extracting text from image...")
             progress_bar.progress(40)
 
-            extracted_text = self.ocr_helper.extract_text(temp_path, method='auto', language='ara+fra')
+            extracted_text = self.ocr_helper.extract_text(temp_path, method="auto", language="ara+fra")
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
@@ -82,15 +125,11 @@ class EnhancedStreamlitOCR:
             progress_bar.progress(100)
             time.sleep(1)
 
-            st.session_state.processing_history.append({
-                'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-                'result': parsed_data
-            })
+            st.session_state.processing_history.append(
+                {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "result": parsed_data}
+            )
 
-            return {
-                'full_text': extracted_text,
-                'parsed_data': parsed_data
-            }
+            return {"full_text": extracted_text, "parsed_data": parsed_data}
 
         except Exception as e:
             self.logger.error(f"Error during extraction: {e}")
@@ -99,59 +138,50 @@ class EnhancedStreamlitOCR:
 
     def render_application(self):
         st.title("🆔 Moroccan ID Card OCR")
-        st.write("Upload a Moroccan ID card image or use your camera for intelligent text extraction.")
+        st.write("Upload a Moroccan ID card image for intelligent text extraction.")
 
-        # Toggle for selecting input method
-        input_method = st.radio("Choose Input Method:", ("Upload File", "Use Camera"))
+        uploaded_file = st.file_uploader(
+            "Choose an image",
+            type=["png", "jpg", "jpeg"],
+            help="Upload a clear, high-resolution image of a Moroccan ID card.",
+        )
 
-        image = None
+        if uploaded_file:
+            image = self.preprocess_uploaded_image(uploaded_file)
 
-        if input_method == "Upload File":
-            uploaded_file = st.file_uploader(
-                "Choose an image",
-                type=['png', 'jpg', 'jpeg'],
-                help="Upload a clear, high-resolution image of a Moroccan ID card."
-            )
-            if uploaded_file:
-                image = self.preprocess_uploaded_image(uploaded_file)
+            if image:
+                col1, col2 = st.columns(2)
 
-        elif input_method == "Use Camera":
-            camera_image = st.camera_input("Take a picture")
-            if camera_image:
-                image = self.preprocess_uploaded_image(camera_image)
+                with col1:
+                    st.subheader("Uploaded Image")
+                    st.image(image, use_container_width=True)
 
-        if image:
-            col1, col2 = st.columns(2)
+                with col2:
+                    if st.button("Extract Text"):
+                        extraction_result = self.extract_and_parse_text(image)
 
-            with col1:
-                st.subheader("Captured/Uploaded Image")
-                st.image(image, use_container_width=True)
+                        if extraction_result:
+                            tab1, tab2 = st.tabs(["📜 Full Text", "🔍 Parsed Info"])
 
-            with col2:
-                if st.button("Extract Text"):
-                    extraction_result = self.extract_and_parse_text(image)
+                            with tab1:
+                                st.text_area(
+                                    "Extracted Text",
+                                    value=extraction_result["full_text"],
+                                    height=200,
+                                    key="full_text_tab",
+                                )
 
-                    if extraction_result:
-                        tab1, tab2 = st.tabs(["📜 Full Text", "🔍 Parsed Info"])
-
-                        with tab1:
-                            st.text_area(
-                                "Extracted Text",
-                                value=extraction_result['full_text'],
-                                height=200,
-                                key="full_text_tab"
-                            )
-
-                        with tab2:
-                            st.json(extraction_result['parsed_data'], expanded=True)
+                            with tab2:
+                                st.json(extraction_result["parsed_data"], expanded=True)
 
         if st.session_state.processing_history:
             with st.expander("Processing History"):
                 for entry in reversed(st.session_state.processing_history):
                     st.write(f"**Processed at:** {entry['timestamp']}")
-                    st.json(entry['result'])
+                    st.json(entry["result"])
                     st.markdown("---")
 
+
 if __name__ == "__main__":
-    app = EnhancedStreamlitOCR()
+    app = StreamlitWithAuth()
     app.render_application()
