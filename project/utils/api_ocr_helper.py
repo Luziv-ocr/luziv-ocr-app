@@ -28,12 +28,13 @@ class APIOCRHelper:
 
             # Prepare the image
             image = Image.open(image_path)
+            image = image.convert('L')
             if image.mode == 'RGBA':
                 image = image.convert('RGB')
 
             # Optimize image for API
             img_byte_arr = BytesIO()
-            image.save(img_byte_arr, format='PNG', quality=100, dpi=(300, 300))
+            image.save(img_byte_arr, format='PNG', quality=100,compress_level=0)
             img_byte_arr = img_byte_arr.getvalue()
 
             # Prepare API request
