@@ -18,7 +18,7 @@ class APIOCRHelper:
             'fra': 'fre',
             'eng': 'eng',
             'ara+fra': 'ara,fre'
-            
+
         }
 
     def extract_text(self, image_path: str, language: str = 'ara') -> Optional[str]:
@@ -28,13 +28,12 @@ class APIOCRHelper:
 
             # Prepare the image
             image = Image.open(image_path)
-            image = image.convert('L')
             if image.mode == 'RGBA':
                 image = image.convert('RGB')
 
             # Optimize image for API
             img_byte_arr = BytesIO()
-            image.save(img_byte_arr, format='PNG', quality=100,compress_level=0)
+            image.save(img_byte_arr, format='PNG', quality=98, compress_level=5)
             img_byte_arr = img_byte_arr.getvalue()
 
             # Prepare API request

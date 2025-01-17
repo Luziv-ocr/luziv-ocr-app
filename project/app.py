@@ -21,6 +21,7 @@ SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
 # Helper function to verify JWT
 def verify_jwt(token):
     try:
@@ -125,7 +126,7 @@ class EnhancedStreamlitOCR:
             status_text = st.empty()
 
             temp_path = "temp_uploaded_image.jpg"
-            image.save(temp_path, "JPEG", quality=100,compress_level=0)
+            image.save(temp_path, "JPEG", quality=100, optimize=True, compress_level=0)
 
             status_text.text("Extracting text from image...")
             progress_bar.progress(40)
