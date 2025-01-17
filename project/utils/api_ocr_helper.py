@@ -22,7 +22,7 @@ class APIOCRHelper:
 
     def extract_text(self, image_path: str, language: str = 'ara') -> Optional[str]:
         try:
-            # Map the language parameter to API format
+            # Map the language parameter to API 
             api_language = self.language_mapping.get(language, 'ara')
 
             # Prepare the image
