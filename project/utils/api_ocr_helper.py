@@ -33,14 +33,14 @@ class APIOCRHelper:
 
             # Optimize image for API
             img_byte_arr = BytesIO()
-            image.save(img_byte_arr, format='PNG', quality=98, compress_level=5)
+            image.save(img_byte_arr, format='PNG', quality=98)
             img_byte_arr = img_byte_arr.getvalue()
 
             # Prepare API request
             payload = {
                 'apikey': self.api_key,
-                'language': "ara",
-                'OCREngine': 1,
+                'language': "auto",
+                'OCREngine': 2,
                 'detectOrientation': True,
                 'scale': True,
                 'isTable': False,

@@ -171,7 +171,7 @@ class EnhancedStreamlitOCR:
 
             # Save temporary image
             temp_path = "temp_uploaded_image.jpg"
-            image.save(temp_path, "JPEG", quality=100, optimize=True)
+            image.save(temp_path, "JPEG", quality=100)
 
             status_text.text("Extracting text from image...")
             progress_bar.progress(40)
