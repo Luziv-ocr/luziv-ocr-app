@@ -33,7 +33,7 @@ class APIOCRHelper:
 
             # Optimize image for API
             img_byte_arr = BytesIO()
-            image.save(img_byte_arr, format='PNG', quality=70)
+            image.save(img_byte_arr, format='PNG', quality=98)
             img_byte_arr = img_byte_arr.getvalue()
 
             # Prepare API request
